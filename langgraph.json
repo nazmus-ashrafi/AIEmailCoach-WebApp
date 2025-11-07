@@ -1,0 +1,8 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "ai_email_coach": "./src/ai_email_coach/graph.py:graph"
+    },
+  "env": ".env"
+}
+
