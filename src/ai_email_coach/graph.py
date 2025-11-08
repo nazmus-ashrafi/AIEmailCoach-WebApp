@@ -39,7 +39,7 @@ async def triage_router(state: State, *, config: RunnableConfig
     llm_router = llm.with_structured_output(RouterSchema) 
     
     author, to, subject, email_thread = parse_email(state["email_input"])
-    system_prompt = configuration.triage_system_prompt.format(
+    system_prompt = configuration.triage_system_prompt.format(  ## ROUTER PROMPT
         background=configuration.default_background,
         triage_instructions=configuration.default_triage_instructions
     )
@@ -65,6 +65,7 @@ async def triage_router(state: State, *, config: RunnableConfig
                 }
             ],
             "classification_decision": result.classification,
+            "reasoning": result.reasoning 
         }
         
     elif result.classification == "ignore":
@@ -72,6 +73,7 @@ async def triage_router(state: State, *, config: RunnableConfig
         goto = END
         update =  {
             "classification_decision": result.classification,
+            "reasoning": result.reasoning 
         }
         
     elif result.classification == "notify":
@@ -81,6 +83,7 @@ async def triage_router(state: State, *, config: RunnableConfig
         # goto = "__end__"
         update = {
             "classification_decision": result.classification,
+            "reasoning": result.reasoning 
         }
         
     else:

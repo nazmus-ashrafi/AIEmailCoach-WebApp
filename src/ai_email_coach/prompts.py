@@ -18,6 +18,7 @@ Categorize each email into one of three categories:
 2. NOTIFY - Important information that worth notification but doesn't require a response
 3. RESPOND - Emails that need a direct response
 Classify the below email into one of these categories.
+Then, provide a short explanation (reasoning) for why you chose this category.
 </ Instructions >
 
 < Rules >
