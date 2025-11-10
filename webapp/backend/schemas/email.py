@@ -1,5 +1,5 @@
 '''
-- The Pydantic schemas/ folder, in a FastAPI project, contains Pydantic models that define how data is 
+- The "Pydantic schemas" / folder, in a FastAPI project, contains Pydantic models that define how data is 
 validated and serialized at the API layer 
 - Each Pydantic model (in the schemas/ folder) usually corresponds one-to-one 
 with a SQLAlchemy model (in the models/ folder) 

@@ -9,9 +9,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import inspect
 from db.database import get_db, engine, Base
 
-from models.email import Email # SQLAlchemy model
-from schemas.email import EmailResponse  # Pydantic schema
-from schemas.email import EmailClassificationResponse # Pydantic schema
+from models.email import Email, EmailClassification # SQLAlchemy model
+from schemas.email import EmailResponse, EmailClassificationResponse  # Pydantic schema
 
 from email_mock import MOCK_EMAILS
 import os
@@ -44,14 +43,15 @@ router = APIRouter(prefix="/emails", tags=["Emails"])
 @router.get("/", response_model=list[EmailResponse])
 def list_emails(db: Session = Depends(get_db)):
     """
-    Lazily create the emails table and populate it with mock emails
+    - Lazily create the emails table (removed (see 1), tables now create at app startup in main (see ensure_tables_exist()))
+    - Checks if table exists and populate it with mock emails
     if it is empty.
     """
-    inspector = inspect(engine)
+    # inspector = inspect(engine)
 
-    # 1️. Create tables if they don't exist
-    if "emails" not in inspector.get_table_names():
-        Base.metadata.create_all(bind=engine)
+    # # 1️. Create tables if they don't exist
+    # if "emails" not in inspector.get_table_names():
+    #     Base.metadata.create_all(bind=engine)
 
     # 2️. Check if table already has data
     emails = db.query(Email).all()
@@ -87,32 +87,6 @@ def get_email(email_id: int):
 # -----------------------------------------------------------------------------------------------------------------------
 
 
-@router.post("/reply")
-async def generate_reply(email_id: int):
-    # Find the email
-    email = next((e for e in MOCK_EMAILS if e["id"] == email_id), None)
-    if not email:
-        raise HTTPException(status_code=404, detail="Email not found")
-
-    # For MVP: placeholder AI draft
-    ai_reply = (
-        f"Hi {email['author'].split()[0]},\n\n"
-        "Thank you for reaching out. I appreciate your message and will get back to you shortly.\n\n"
-        "Best,\nNazmus"
-    )
-
-    # Later, call your LangGraph workflow here:
-    # result = await graph.ainvoke({"email_input": email})
-    # ai_reply = result["draft"]
-
-    return {
-        "email_id": email_id,
-        "subject": email["subject"],
-        "ai_draft": ai_reply,
-    }
-
-
-
 
 @router.post("/classify_email", response_model=EmailClassificationResponse)
 async def classify_email(email_id: int, db: Session = Depends(get_db)):
@@ -120,8 +94,24 @@ async def classify_email(email_id: int, db: Session = Depends(get_db)):
     email = db.query(Email).filter(Email.id == email_id).first()
     if not email:
         raise HTTPException(status_code=404, detail="Email not found")
+    
+    # 2️. Check if this email already has a classification (avoid duplicates)
+    existing_classification = (
+        db.query(EmailClassification)
+        .filter(EmailClassification.email_id == email_id)
+        .first()
+    )
+    if existing_classification:
+        ## idempotent (it doesn’t recompute if a classification already exists)
+        print("Found old classification, returning it")
+        return EmailClassificationResponse(
+            email_id=email.id,
+            classification=existing_classification.classification,
+            reasoning=existing_classification.reasoning,
+            ai_draft=existing_classification.ai_draft
+        )
 
-    # 2️. Build initial state for LangGraph
+    # 3️. Build initial state for LangGraph
     state_input = State(email_input={
         "author": email.author,
         "to": email.to,
@@ -129,24 +119,32 @@ async def classify_email(email_id: int, db: Session = Depends(get_db)):
         "email_thread": email.email_thread
     })
 
-    # 3️. Call the graph
+    # 4️. Call the LLM graph
     try:
         result = await graph.ainvoke(state_input, config={})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Classification failed: {str(e)}")
 
-    # 4️. Extract classification and reasoning from graph result
+    # 5️. Extract classification and reasoning from graph result
     classification = result.get("classification_decision", "")
     reasoning = result.get("reasoning", "")
 
-    # # Optional: generate placeholder draft if classified as respond
-    # ai_draft = None
-    # if classification == "respond":
-    #     ai_draft = f"Hi {email.author.split()[0]},\n\nThank you for your email. I will get back to you shortly.\n\nBest,\nNazmus"
 
-    # 5️. Optionally: store classification & reasoning in DB (future step)
-    # TODO: Add table/model for classification feedback
+    # 6. Persist the classification result
+    new_classification = EmailClassification(
+        email_id=email.id,
+        classification=classification,
+        reasoning=reasoning,
+        # ai_draft=ai_draft
+    )
+    db.add(new_classification)
+    db.commit()
+    db.refresh(new_classification)
+    print("Stored newly classified email")
 
+
+    ## Returning classification_decision and reasoning, in memory as JSON
+    ## Without loading these results in the tabl (see 6), the system recomputes the result and loses the previous output after the request ends
     return EmailClassificationResponse(
         email_id=email.id,
         classification=classification,
