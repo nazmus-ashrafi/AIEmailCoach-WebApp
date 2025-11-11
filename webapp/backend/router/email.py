@@ -43,7 +43,7 @@ router = APIRouter(prefix="/emails", tags=["Emails"])
 @router.get("/", response_model=list[EmailResponse])
 def list_emails(db: Session = Depends(get_db)):
     """
-    - Lazily create the emails table (removed (see 1), tables now create at app startup in main (see ensure_tables_exist()))
+    - (X) Lazily create the emails table (Removed (see 1), tables now create at app startup in main (see ensure_tables_exist()))
     - Checks if table exists and populate it with mock emails
     if it is empty.
     """

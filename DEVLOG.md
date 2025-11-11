@@ -107,3 +107,30 @@ git commit -m "feat: persist email classifications and reasoning in database"
 	•	Set up Alembic migrations for production-ready schema management.
 	•	Integrate real-time AI draft generation and human-in-the-loop feedback.
 	•	Build metrics/analytics dashboard for email triage results.
+
+
+⸻
+
+## Commit 6 – Email Inbox UI (Frontend Integration)
+
+<!-- Nov 11, 2025 -->
+
+git commit -m “feat: add email inbox page with dark theme and backend integration”
+
+### What I Built
+	•	Created a React frontend page (app/emails/page.tsx) to display emails fetched from the FastAPI backend.
+	•	Implemented responsive email cards showing subject, sender, recipient, and preview text.
+	•	Styled with dark mode using Tailwind + shadcn components (Card, Badge).
+	•	Added dynamic data fetching from the backend endpoint (http://localhost:8000/api/emails/).
+	•	Introduced loading and empty states:
+		•	“Loading emails…” indicator.
+	•	Graceful message when no emails are found.
+
+### Technical Details
+	•	Connected the frontend (Next.js) to the backend (FastAPI) via CORS-enabled API calls.
+	•	Integrated shadcn UI library for consistent styling and reusable components.
+	•	Applied dark theme styling using Tailwind utility classes (bg-gray-950, text-gray-100, bg-gray-900).
+	•	File structure organized under:
+			webapp/frontend/app/emails/page.tsx
+			webapp/frontend/components/ui/
+
