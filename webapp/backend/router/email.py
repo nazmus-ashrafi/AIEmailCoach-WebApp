@@ -144,7 +144,7 @@ async def classify_email(email_id: int, db: Session = Depends(get_db)):
 
 
     ## Returning classification_decision and reasoning, in memory as JSON
-    ## Without loading these results in the tabl (see 6), the system recomputes the result and loses the previous output after the request ends
+    ## Without loading these results in the table (see 6), the system recomputes the result and loses the previous output after the request ends
     return EmailClassificationResponse(
         email_id=email.id,
         classification=classification,

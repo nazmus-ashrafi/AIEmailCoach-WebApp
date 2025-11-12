@@ -115,7 +115,7 @@ git commit -m "feat: persist email classifications and reasoning in database"
 
 <!-- Nov 11, 2025 -->
 
-git commit -m “feat: add email inbox page with dark theme and backend integration”
+git commit -m "feat: add email inbox page with dark theme and backend integration"
 
 ### What I Built
 	•	Created a React frontend page (app/emails/page.tsx) to display emails fetched from the FastAPI backend.
@@ -134,3 +134,32 @@ git commit -m “feat: add email inbox page with dark theme and backend integrat
 			webapp/frontend/app/emails/page.tsx
 			webapp/frontend/components/ui/
 
+
+## Commit 7 – Email Inbox UI (Frontend Integration) **[Frontend]**
+
+git commit -m "feat[Frontend]: add email classification island with spinner, reasoning, and color-coded result"
+
+<!-- Nov 12, 2025 -->
+
+
+### What I Built
+	•	Added a client-side ClassifyIsland component for email detail page.
+	•	Large centered button to classify an email via the FastAPI /classify_email endpoint.
+	•	Button shows a spinner while classification is in progress.
+	•	Displays reasoning from the AI in a readable block with improved typography.
+	•	Server-side rendered email detail page remains SSR; only the interactive button is a client-side “island.”
+
+### Technical Details
+	•	Created a React client component (ClassifyIsland.tsx) using hooks (useState) to manage classification, reasoning, loading, and error state.
+	•	Fetches classification from backend via environment-based API_BASE_URL.
+	•	Color-coded classification uses Tailwind classes with runtime-safe mapping. (TODO: need to fix)
+	•	Spinner implemented with Lucide Loader2 icon and Tailwind animate-spin.
+	•	Reasoning block styled with padding, rounded corners, larger font, and whitespace preserved.
+	•	Dynamic updates ensure idempotency: already-classified emails return stored values without recomputation.
+
+
+### Notes / Next Steps
+	•	Fix color visibility issues for classification verdicts.
+	•	Integrate AI draft generation once /reclassify endpoint is ready.
+	•	Add animation for reasoning box (optional UX improvement).
+	•	Connect island to metrics/analytics dashboard to track classification interactions.

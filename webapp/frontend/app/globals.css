@@ -41,6 +41,21 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Green scale */
+  --color-green-400: oklch(0.82 0.15 145);
+  --color-green-500: oklch(0.72 0.17 145);
+  
+  /* Amber scale */
+  --color-amber-400: oklch(0.82 0.15 75);
+  --color-amber-500: oklch(0.72 0.17 75);
+  
+  /* Stone scale */
+  --color-stone-300: oklch(0.72 0.01 75);
+  --color-stone-400: oklch(0.62 0.01 75);
+  --color-stone-700: oklch(0.42 0.01 75);
+  --color-stone-800: oklch(0.32 0.01 75);
+  --color-stone-900: oklch(0.22 0.01 75);
 }
 
 :root {

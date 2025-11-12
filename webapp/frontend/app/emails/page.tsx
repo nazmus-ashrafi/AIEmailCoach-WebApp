@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+
 
 interface Email {
   id: number;
@@ -60,26 +62,28 @@ export default function EmailsPage() {
       ) : (
         <div className="grid gap-4">
           {emails.map((email) => (
-            <Card
-              key={email.id}
-              className="bg-stone-900 border-stone-800 p-4 hover:bg-stone-800 transition-colors duration-200"
-            >
-              <CardHeader className="flex flex-row justify-between items-start p-0">
-                <CardTitle className="text-lg font-semibold text-white flex-1 pr-4">{email.subject}</CardTitle>
-                <Badge className={`${getBadgeColor(email.classification)} uppercase text-xs shrink-0`}>
-                  {email.classification || "TBD"}
-                </Badge>
-              </CardHeader>
-              <CardContent className="p-0 mt-3">
-                <p className="text-sm text-stone-400">
-                  <strong className="text-stone-300">From:</strong> {email.author}
-                </p>
-                <p className="text-sm text-stone-400">
-                  <strong className="text-stone-300">To:</strong> {email.to}
-                </p>
-                <p className="text-sm mt-2 line-clamp-3 text-stone-300">{email.email_thread}</p>
-              </CardContent>
-            </Card>
+            <Link href={`/emails/${email.id}`} key={email.id}>
+              <Card
+                key={email.id}
+                className="bg-stone-900 border-stone-800 p-4 hover:bg-stone-800 transition-colors duration-200"
+              >
+                <CardHeader className="flex flex-row justify-between items-start p-0">
+                  <CardTitle className="text-lg font-semibold text-white flex-1 pr-4">{email.subject}</CardTitle>
+                  <Badge className={`${getBadgeColor(email.classification)} uppercase text-xs shrink-0`}>
+                    {email.classification || "TBD"}
+                  </Badge>
+                </CardHeader>
+                <CardContent className="p-0 mt-3">
+                  <p className="text-sm text-stone-400">
+                    <strong className="text-stone-300">From:</strong> {email.author}
+                  </p>
+                  <p className="text-sm text-stone-400">
+                    <strong className="text-stone-300">To:</strong> {email.to}
+                  </p>
+                  <p className="text-sm mt-2 line-clamp-3 text-stone-300">{email.email_thread}</p>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       )}
