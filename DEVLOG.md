@@ -137,7 +137,7 @@ git commit -m "feat: add email inbox page with dark theme and backend integratio
 
 ## Commit 7 – Email Inbox UI (Frontend Integration) **[Frontend]**
 
-git commit -m "feat[Frontend]: add email classification island with spinner, reasoning, and color-coded result"
+git commit -m "feat[Frontend]: add email classification island to email details page"     
 
 <!-- Nov 12, 2025 -->
 
@@ -163,3 +163,56 @@ git commit -m "feat[Frontend]: add email classification island with spinner, rea
 	•	Integrate AI draft generation once /reclassify endpoint is ready.
 	•	Add animation for reasoning box (optional UX improvement).
 	•	Connect island to metrics/analytics dashboard to track classification interactions.
+
+
+
+## Commit 8 – AI Draft Generation (Backend + Frontend Integration)
+
+<!-- Nov 13, 2025 -->
+
+git commit -m "feat: add AI draft generation endpoint and frontend integration"
+
+### What I Built
+	•	Backend
+		•	Implemented POST /api/emails/{email_id}/generate_draft route.
+		•	Uses LangGraph response_agent only for emails classified as “respond”.
+		•	Skips re-generation if a draft already exists (idempotent).
+		•	Supports forced re-generation with optional config override. (will be completed later)
+		•	Reuses LangGraph state (ai_draft) to persist generated draft in DB.
+		•	Updated /classify_email endpoint to also capture ai_draft when classification = respond.
+	•	Frontend
+		•	Extended the ClassifyIsland component:
+			•	Added “Generate Draft” button beside “Classify Email.”
+			•	Displays the AI draft cube next to the classification cube in a responsive layout.
+		•	Buttons have independent loading spinners and error states.
+		•	Automatically populates the AI draft after successful classification (if available).
+
+### Technical Details
+	•	FastAPI backend:
+		•	generate_draft checks for existing draft before invoking LangGraph.
+		•	Adds conditional force support to bypass cache if explicitly requested. (will be completed later)
+		•	Ensures persisted results in email_classifications table (ai_draft column).
+	•	Frontend:
+		•	Updated ClassifyIsland.tsx:
+		•	Added aiDraft state.
+		•	Added handleGenerateDraft() function calling /generate_draft.
+		•	Displayed both cubes (classification + ai_draft) side-by-side using flex + gap-6.
+	
+
+### Example Response
+
+{
+  "email_id": 12,
+  "classification": "respond",
+  "reasoning": "The sender is requesting a reply regarding a research collaboration opportunity.",
+  "ai_draft": "Dear Dr. Reynolds,\n\nThank you for reaching out..."
+}
+
+### Dependencies Added / Updated
+	•	None — reused existing LangGraph + FastAPI setup.
+
+### Notes / Next Possible Steps
+	•	Add force regenerate toggle in frontend to pass ?force=true query param.
+	•	Integrate AI draft editor for human review before sending.
+	•	Separate write_email and send_email tools in LangGraph agent.
+	•	Add LangSmith traces for draft generation latency and success metrics.

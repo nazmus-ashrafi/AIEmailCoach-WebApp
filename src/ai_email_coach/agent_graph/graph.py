@@ -15,27 +15,48 @@ async def llm_call(state: State, *, config: RunnableConfig) -> dict[str, Any]:
     configuration = AgentConfiguration.from_runnable_config(config)
 
     # Collect all tools
-    tools = [configuration.write_email,     
+    tools = [configuration.write_email,    # "write and send" together
             configuration.Done] 
+    ## Ideas for other tools:  “summarize email” tool, “suggest subject” tool
 
     # Initialize the LLM, enforcing tool use
     llm = load_chat_model(configuration.model)
     llm_with_tools = llm.bind_tools(tools, tool_choice="any")
 
+
+    # Run the model
+    msg = llm_with_tools.invoke(
+        [
+            {"role": "system", "content": configuration.agent_system_prompt.format(
+                tools_prompt=configuration.agent_tool_prompt,
+                background=configuration.default_background,
+                response_preferences=configuration.default_response_preferences)
+            },
+        ]
+        + state["messages"]
+    )
+
+    # print(msg)
+
+    # --- Extract AI draft (if it called write_email)
+    ## Current implemntation works if I only have one draft-generating tool (write_email) & the AI always calls it once per email.
+    ## Need to be upgraded later if need to merge multiple messages or handle partial outputs.
+    ai_draft = None
+    if hasattr(msg, "tool_calls") and msg.tool_calls:
+        for call in msg.tool_calls:
+            if call.get("name") == "write_email":
+                args = call.get("args", {})
+                ai_draft = args.get("content")
+                break
+
     return {
         "messages": [
-            llm_with_tools.invoke(
-                [
-                    {"role": "system", "content": configuration.agent_system_prompt.format(
-                        tools_prompt=configuration.agent_tool_prompt,
-                        background=configuration.default_background,
-                        response_preferences=configuration.default_response_preferences)
-                    },
-                    
-                ]
-                + state["messages"]
-            )
-        ]
+            msg
+        ],
+        # "ai_draft": ai_draft,
+        "ai_draft": ai_draft or state["ai_draft"],  # <- persist if already set
+
+        
     }
 
 # After the LLM makes a decision, we need to execute the chosen tool. 
@@ -56,7 +77,8 @@ async def tool_handler(state: State, *, config: RunnableConfig) -> dict[str, Any
         tool = tools_by_name[tool_call["name"]]
         observation = tool.invoke(tool_call["args"])
         result.append({"role": "tool", "content" : observation, "tool_call_id": tool_call["id"]})
-    return {"messages": result}
+        
+    return {"messages": result, "ai_draft": state["ai_draft"] }
 
 # Our agent needs to decide when to continue using tools and when to stop. 
 # This conditional routing function directs the agent to either continue or terminate.

@@ -15,5 +15,5 @@ class State(MessagesState):
     email_input: dict
     classification_decision: Literal["ignore", "respond", "notify"]
     reasoning: Optional[str] = None       # added for LLM explanation
-    # ai_draft: Optional[str] = None        # placeholder for reply draft
+    ai_draft: Optional[str] = None        # placeholder for reply draft
     

@@ -4,7 +4,7 @@ Router (API Layer)
 
 '''
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import inspect
 from db.database import get_db, engine, Base
@@ -128,6 +128,7 @@ async def classify_email(email_id: int, db: Session = Depends(get_db)):
     # 5️. Extract classification and reasoning from graph result
     classification = result.get("classification_decision", "")
     reasoning = result.get("reasoning", "")
+    ai_draft = result.get("ai_draft", "")
 
 
     # 6. Persist the classification result
@@ -135,12 +136,12 @@ async def classify_email(email_id: int, db: Session = Depends(get_db)):
         email_id=email.id,
         classification=classification,
         reasoning=reasoning,
-        # ai_draft=ai_draft
+        ai_draft=ai_draft
     )
     db.add(new_classification)
     db.commit()
     db.refresh(new_classification)
-    print("Stored newly classified email")
+    print("Stored newly classified email, with reasoning and ai draft")
 
 
     ## Returning classification_decision and reasoning, in memory as JSON
@@ -149,5 +150,87 @@ async def classify_email(email_id: int, db: Session = Depends(get_db)):
         email_id=email.id,
         classification=classification,
         reasoning=reasoning,
-        # ai_draft=ai_draft
+        ai_draft=ai_draft
+    )
+
+
+# -----------------------------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------------------------------------
+
+
+@router.post("/{email_id}/generate_draft", response_model=EmailClassificationResponse)
+async def generate_draft(
+    email_id: int,
+    force: bool = Query(False, description="Force regenerate the AI draft even if it exists"),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate an AI draft for the given email.
+    - If a draft already exists (and force=False), return it immediately.
+    - If force=True, re-invoke the LangGraph and update the stored draft.
+    """
+
+    # 1. Fetch email from DB
+    email = db.query(Email).filter(Email.id == email_id).first()
+    if not email:
+        raise HTTPException(status_code=404, detail="Email not found")
+
+    # 2. Check if a classification already exists
+    existing_classification = (
+        db.query(EmailClassification)
+        .filter(EmailClassification.email_id == email_id)
+        .first()
+    )
+
+    # 3. If draft already exists and not forcing regeneration, return it
+    if existing_classification and existing_classification.ai_draft and not force:
+        print("Existing draft found, returning cached draft.")
+        return EmailClassificationResponse(
+            email_id=email.id,
+            classification=existing_classification.classification,
+            reasoning=existing_classification.reasoning,
+            ai_draft=existing_classification.ai_draft
+        )
+
+    # 4. Build initial LangGraph state
+    state_input = State(email_input={
+        "author": email.author,
+        "to": email.to,
+        "subject": email.subject,
+        "email_thread": email.email_thread
+    })
+
+    # 5. Call the LLM graph to generate a draft (and classification if needed)
+    try:
+        result = await graph.ainvoke(state_input, config={})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Draft generation failed: {str(e)}")
+
+    # 6. Extract outputs
+    classification = result.get("classification_decision", "")
+    reasoning = result.get("reasoning", "")
+    ai_draft = result.get("ai_draft", "")
+
+    # 7. Update or create classification record
+    if existing_classification:
+        existing_classification.classification = classification or existing_classification.classification
+        existing_classification.reasoning = reasoning or existing_classification.reasoning
+        existing_classification.ai_draft = ai_draft
+    else:
+        new_classification = EmailClassification(
+            email_id=email.id,
+            classification=classification,
+            reasoning=reasoning,
+            ai_draft=ai_draft,
+        )
+        db.add(new_classification)
+
+    db.commit()
+
+    # 8. Return the response
+    return EmailClassificationResponse(
+        email_id=email.id,
+        classification=classification,
+        reasoning=reasoning,
+        ai_draft=ai_draft,
     )

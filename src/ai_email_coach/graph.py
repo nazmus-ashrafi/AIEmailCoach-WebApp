@@ -56,7 +56,7 @@ async def triage_router(state: State, *, config: RunnableConfig
     
     if result.classification == "respond":
         print("Classification: RESPOND - This email requires a response")
-        goto = "response_agent"
+        goto = "response_agent" ## Invoking the agent with tools
         update = {
             "messages": [
                 {
@@ -88,6 +88,8 @@ async def triage_router(state: State, *, config: RunnableConfig
         
     else:
         raise ValueError(f"Invalid classification: {result.classification}")
+    
+    ## Command allows us to update our state and also determine where to go next in the graph
     return Command(goto=goto, update=update)
 
 
