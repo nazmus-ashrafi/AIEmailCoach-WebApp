@@ -28,9 +28,14 @@ except ImportError:
     if project_root and project_root not in sys.path:
         sys.path.insert(0, project_root)
 
-
 from src.ai_email_coach.state import State
 from src.ai_email_coach.graph import graph  # LangGraph graph
+
+
+from fastapi.concurrency import run_in_threadpool
+from core.outlook import OutlookClient, transform_graph_message_to_email_record
+from dotenv import load_dotenv
+
 
 
 router = APIRouter(prefix="/emails", tags=["Emails"])
@@ -55,18 +60,20 @@ def list_emails(db: Session = Depends(get_db)):
 
     # 2️. Check if table already has data
     emails = db.query(Email).all()
-    if not emails:
-        # Populate the table with mock emails
-        for item in MOCK_EMAILS:
-            email = Email(
-                author=item["author"],
-                to=item["to"],
-                subject=item["subject"],
-                email_thread=item["email_thread"]
-            )
-            db.add(email)
-        db.commit()
-        emails = db.query(Email).all()
+
+    ## Fetch from Mock Emails --
+    # if not emails:
+    #     # Populate the table with mock emails
+    #     for item in MOCK_EMAILS:
+    #         email = Email(
+    #             author=item["author"],
+    #             to=item["to"],
+    #             subject=item["subject"],
+    #             email_thread=item["email_thread"]
+    #         )
+    #         db.add(email)
+    #     db.commit()
+    #     emails = db.query(Email).all()
 
     return emails
 
@@ -75,9 +82,16 @@ def list_emails(db: Session = Depends(get_db)):
 # -----------------------------------------------------------------------------------------------------------------------
 
 
-@router.get("/{email_id}")
-def get_email(email_id: int):
-    email = next((e for e in MOCK_EMAILS if e["id"] == email_id), None)
+# @router.get("/{email_id}")
+# def get_email(email_id: int):
+#     email = next((e for e in MOCK_EMAILS if e["id"] == email_id), None)
+#     if not email:
+#         raise HTTPException(status_code=404, detail="Email not found")
+#     return email
+
+@router.get("/{email_id}", response_model=EmailResponse)
+def get_email(email_id: int, db: Session = Depends(get_db)):
+    email = db.query(Email).filter(Email.id == email_id).first()
     if not email:
         raise HTTPException(status_code=404, detail="Email not found")
     return email
@@ -234,3 +248,96 @@ async def generate_draft(
         reasoning=reasoning,
         ai_draft=ai_draft,
     )
+
+
+# -----------------------------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------------------------------------
+
+
+@router.post("/sync_outlook")
+async def sync_outlook(db: Session = Depends(get_db)):
+    """
+    Sync emails from Outlook → DB.
+    Steps:
+      1. Instantiate OutlookClient
+      2. Fetch messages from Microsoft Graph
+      3. Transform to Email model
+      4. Deduplicate by message_id
+      5. Save new messages
+    """
+
+    # 1. Create client from .env
+    APPLICATION_ID = os.getenv("APPLICATION_ID")
+    CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+    TENANT_ID = os.getenv("TENANT_ID")
+    REDIRECT_URI = os.getenv("REDIRECT_URI") or "http://localhost:8000"
+    SCOPES = ["User.Read", "Mail.ReadWrite", "Mail.Send"]
+
+    if not APPLICATION_ID or not CLIENT_SECRET:
+        raise HTTPException(status_code=500, detail="Outlook client credentials missing in environment variables")
+
+    client = OutlookClient(
+        client_id=APPLICATION_ID,
+        client_secret=CLIENT_SECRET,
+        scopes=SCOPES,
+        redirect_uri=REDIRECT_URI,
+        tenant_id=TENANT_ID,
+    )
+
+    # 2. Fetch messages (using threadpool because OutlookClient is sync)
+    def fetch_all():
+        return list(client.fetch_messages(
+            top=25,
+            select=["id", "subject", "from", "toRecipients", "bodyPreview", "body", "receivedDateTime"],
+            folder="Inbox"
+        ))
+    
+    try:
+        messages = await run_in_threadpool(fetch_all)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    created = 0
+    skipped = 0
+
+    # 3. Iterate & store to DB
+    for msg in messages:
+        record = transform_graph_message_to_email_record(msg)
+        message_id = record["message_id"]
+
+        # Dedupe by message_id
+        existing = db.query(Email).filter(Email.message_id == message_id).first()
+        if existing:
+            skipped += 1
+            continue
+
+        # Convert Outlook fields → my Email model schema
+        # new_email = Email(
+        #     message_id=record["message_id"],
+        #     author=record["from_address"] or "Unknown",
+        #     to=", ".join([r.get("address", "") for r in json.loads(record["to_recipients"] or "[]")]),
+        #     subject=record["subject"] or "(No subject)",
+        #     email_thread=record["body_content"] or record["body_preview"] or "",
+        # )
+
+        new_email = Email(
+            message_id=record["message_id"],
+            author=record["from_address"] or "Unknown",
+            to=", ".join([r.get("address", "") for r in json.loads(record["to_recipients"] or "[]")]),
+            subject=record["subject"] or "(No subject)",
+            email_thread_text=record["body_text"],
+            email_thread_html=record["body_html"],
+        )
+
+        db.add(new_email)
+        created += 1
+
+    db.commit()
+
+    # 4. Return ingest summary
+    return {
+        "status": "success",
+        "outlook_messages_fetched": len(messages),
+        "created_in_db": created,
+        "skipped_existing": skipped,
+    }

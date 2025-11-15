@@ -216,3 +216,78 @@ git commit -m "feat: add AI draft generation endpoint and frontend integration"
 	•	Integrate AI draft editor for human review before sending.
 	•	Separate write_email and send_email tools in LangGraph agent.
 	•	Add LangSmith traces for draft generation latency and success metrics.
+
+
+----
+
+## Commit 9 – Outlook Sync,  Full Email Ingestion (Backend), Render (Frontend)
+
+<!-- Nov 15, 2025 -->
+
+git commit -m "feat: Outlook sync API, backend ingestion, store HTML & text, frontend rendering"
+
+### What I Built
+	•	Backend integration with Microsoft Graph API to fetch real Outlook emails.
+	•	Implemented /api/emails/sync_outlook POST route.
+		•	Connects via OutlookClient using credentials from .env.
+		•	Fetches latest messages from Inbox (top 25 by default).
+		•	Transforms Graph API payload into our Email model.
+		•	Deduplicates by message_id to prevent duplicates in DB.
+	•	Persisted both:
+		•	email_thread_html → raw HTML for full rendering.
+		•	email_thread_text → cleaned text via BeautifulSoup for previews, AI processing, and LLM input.
+	•	Removed all mock email ingestion logic.
+	•	Updated Email SQLAlchemy model with new fields (email_thread_html, email_thread_text, message_id).
+	•	Frontend /emails/[id] now renders the full HTML content for each email and uses email_thread_text for clean previews.
+
+### Technical Details
+	•	OutlookClient handles authentication via MSAL and fetches messages from Microsoft Graph.
+			Automate Outlook with python using the Outlook API
+				(1) Goal: Create an Azure app:  to allow Python to connect to Microsoft Graph API Endpoint.
+				- Azure portal -> Microsoft Entra ID -> Under "Manage," select "App registrations" and then "New registration."
+				- Redirect URI (optional): We’ll return the authentication response to this URI after successfully authenticating the user. 
+				Set to: https://localhost.com:8000
+				- Manager -> Certificates & Secrets -> Set Client Secret (Key to authenticate my Python program to the Azure Server)
+				-> saving "value" in .env as CLIENT_SECRET
+				- Saved APPLICATION_ID in .env
+				(2) Automate Outlook tasks such as fetch emails - retrieve_messages_all_emails.py
+
+				First wrote "ms_graph.py" and "retrieve_messages_all_emails.py" to try out concept, then combined them in "outlook.py" 
+
+				Command to use:
+				The command below get the emails from outlook and populates the db.
+				cd webapp/backend/core && uv run outlook.py
+
+	•	transform_graph_message_to_email_record function converts Outlook JSON to DB-friendly structure:
+		•	Extracts sender, recipients, subject, timestamps, body text and HTML.
+		•	Cleans HTML to text for AI-ready ingestion.
+	•	/emails/ GET endpoint returns list of emails from DB without any mock data.
+	•	Detail page uses server-side rendering for HTML email content and ClassifyIsland client component for interactive classification.
+
+### Example Response – /api/emails/1
+
+{
+  "id": 1,
+  "author": "account-security-noreply@accountprotection.microsoft.com",
+  "to": "nazmus_@outlook.com",
+  "subject": "New app(s) connected to your Microsoft account",
+  "created_at": "2025-11-15T09:47:46.946251",
+  "email_thread_text": "Microsoft account\nNew app(s) have access to your data\noutlook-api-ai-email-coach connected...",
+  "email_thread_html": "<html dir=\"ltr\"><head>...</html>",
+  "message_id": "AQMkADAwATNiZmYAZC03NDczLWYxNzMtMDACLTAwCgBGAAADxsDs..."
+}
+
+### Dependencies Added / Updated
+	•	beautifulsoup4 → HTML parsing and clean text extraction.
+	•   msal = Official python package to facilitate the connection to the graph API
+        Microsoft Authentication Library (MSAL)
+    •   httpx = modern http client for python supporting both sync and async
+
+### Notes / Next Possible Steps
+	•	Implement incremental fetch with pagination (instead of top 25) to sync all emails efficiently.
+	•	Add background task / cron job to periodically sync new emails from Outlook.
+	•	Add search and filter on frontend inbox based on subject, from, to.
+	•	Support attachments in future commits.
+	•	Optionally integrate rich HTML preview in frontend with safe sanitization.
+
+⸻

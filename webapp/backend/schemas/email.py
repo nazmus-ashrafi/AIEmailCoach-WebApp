@@ -6,7 +6,6 @@ with a SQLAlchemy model (in the models/ folder)
 - Think of these as the “data contracts” between the backend and frontend
 '''
 
-from pydantic import BaseModel
 from datetime import datetime
 from pydantic import BaseModel, Field
 from typing import Literal, List, Dict, Optional
@@ -22,11 +21,14 @@ class EmailBase(BaseModel):
     author: str
     to: str
     subject: str
-    email_thread: str
+    # email_thread: str
+    email_thread_text: Optional[str] = None
+    email_thread_html: Optional[str] = None
 
 class Email(EmailBase):
     id: int
     created_at: datetime
+    message_id: Optional[str] = None
 
     class Config:
         orm_mode = True # allows conversion from SQLAlchemy object
@@ -42,8 +44,12 @@ class EmailResponse(BaseModel):
     author: str
     to: str
     subject: str
-    email_thread: str
+    # email_thread: str
     created_at: datetime
+
+    email_thread_text: Optional[str]
+    email_thread_html: Optional[str]
+    message_id: Optional[str]
 
     class Config:
         orm_mode = True

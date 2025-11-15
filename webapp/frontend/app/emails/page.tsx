@@ -5,13 +5,13 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 
-
 interface Email {
   id: number;
   author: string;
   to: string;
   subject: string;
-  email_thread: string;
+  email_thread_text: string;
+  email_thread_html: string;
   classification?: "ignore" | "notify" | "respond";
 }
 
@@ -68,8 +68,12 @@ export default function EmailsPage() {
                 className="bg-stone-900 border-stone-800 p-4 hover:bg-stone-800 transition-colors duration-200"
               >
                 <CardHeader className="flex flex-row justify-between items-start p-0">
-                  <CardTitle className="text-lg font-semibold text-white flex-1 pr-4">{email.subject}</CardTitle>
-                  <Badge className={`${getBadgeColor(email.classification)} uppercase text-xs shrink-0`}>
+                  <CardTitle className="text-lg font-semibold text-white flex-1 pr-4">
+                    {email.subject}
+                  </CardTitle>
+                  <Badge
+                    className={`${getBadgeColor(email.classification)} uppercase text-xs shrink-0`}
+                  >
                     {email.classification || "TBD"}
                   </Badge>
                 </CardHeader>
@@ -80,7 +84,9 @@ export default function EmailsPage() {
                   <p className="text-sm text-stone-400">
                     <strong className="text-stone-300">To:</strong> {email.to}
                   </p>
-                  <p className="text-sm mt-2 line-clamp-3 text-stone-300">{email.email_thread}</p>
+                  <p className="text-sm mt-2 line-clamp-3 text-stone-300">
+                    {email.email_thread_text}
+                  </p>
                 </CardContent>
               </Card>
             </Link>
