@@ -291,3 +291,62 @@ git commit -m "feat: Outlook sync API, backend ingestion, store HTML & text, fro
 	•	Optionally integrate rich HTML preview in frontend with safe sanitization.
 
 ⸻
+
+
+## Commit 10 – Outlook Sync,  Full Email Ingestion (Backend), Render (Frontend)
+
+<!-- Nov 17, 2025 -->
+
+git commit -m "feat[frontend/backend]: add Outlook sync button, parse received timestamp, latest-first inbox, beautified previews"
+
+⸻
+
+### What I Built
+	1.	Sync Outlook Button (Frontend)
+		•	Added <SyncOutlookButton> on the Inbox page (/emails)
+		•	Button triggers backend /sync_outlook endpoint
+		•	Loading and success/error message handling
+		•	Inbox table automatically refreshes after sync using refreshAfterSync()
+	2.	Inbox Latest-First Ordering
+		•	Backend now parses Outlook received_datetime when saving emails:
+
+				received_dt = parser.isoparse(record.get("received_datetime"))
+				new_email = Email(..., created_at=received_dt)
+
+
+		•	Ensures new emails appear at the top of the inbox (ORDER BY created_at DESC)
+
+	3.	Beautified Email Previews
+		•	cleanEmailPreview() in frontend formats email_thread_text for inbox display:
+		•	Strips headers like From:, To:, Date:, Subject:
+		•	Collapses whitespace
+		•	Preserves original text for full email view and AI processing
+		•	Improves readability while keeping raw data untouched
+	4.	UI Improvements
+		•	Display received date/time next to classification badge on each inbox card
+		•	Cleaned inbox card layout with flex to align subject, badge, and timestamp
+		•	Maintains dark theme styling with Tailwind and shadcn components
+
+⸻
+
+### Technical Details
+	•	Backend
+		•	/sync_outlook fetches Outlook messages via OutlookClient in a threadpool (sync client) (done before)
+		•	Deduplicates by message_id (done before)
+		•	Converts Outlook message payload via transform_graph_message_to_email_record (done before)
+		•	Saves created_at as received_datetime for accurate chronological ordering
+	•	Frontend
+		•	EmailsPage.tsx uses useEffect + refreshAfterSync() for initial fetch and post-sync refresh. TODO: reduce duplicate code
+		•	cleanEmailPreview() prepares readable preview text for inbox
+		•	Inbox cards use flex layout to display subject, classification, and received_at side by side
+
+⸻
+
+### Notes / Next Steps
+	•	Optionally refactor cleanEmailPreview() into a shared utility file. (Maybe just keep it here, as used by this file only)
+	•	Consider full-thread preview toggle or expandable view
+	•	Add animations for new messages synced
+	•	Track sync performance and metrics (e.g., via LangSmith)
+
+
+

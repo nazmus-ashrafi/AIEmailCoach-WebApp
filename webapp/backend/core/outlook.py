@@ -45,6 +45,7 @@ DEFAULT_REFRESH_TOKEN_FILE = DEFAULT_TOKEN_DIR / "ms_refresh_token.txt"
 class OutlookClient:
     """
     Minimal Outlook/Microsoft Graph client for a single-user MVP.
+    Custom client wrapper built around the Microsoft Graph SDK.
     """
 
     def __init__(

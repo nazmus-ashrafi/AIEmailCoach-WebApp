@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import SyncOutlookButton from "@/components/ui/SyncOutlookButton";
 
 interface Email {
   id: number;
@@ -13,12 +14,43 @@ interface Email {
   email_thread_text: string;
   email_thread_html: string;
   classification?: "ignore" | "notify" | "respond";
+  created_at?: string;
+}
+
+function cleanEmailPreview(text: string) {
+  return text
+    .replace(/\s+/g, " ")        // compress whitespace
+    .replace(/^From:.*?$/gmi, "") // remove headers
+    .replace(/^To:.*?$/gmi, "")
+    .replace(/^Date:.*?$/gmi, "")
+    .replace(/^Subject:.*?$/gmi, "")
+    .trim();
 }
 
 export default function EmailsPage() {
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  function refreshAfterSync() {
+    setLoading(true);
+    setError(null);
+
+    fetch("http://localhost:8000/api/emails/")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to refresh after sync");
+        return res.json();
+      })
+      .then((data) => {
+        setEmails(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        setError("Failed to refresh emails after sync.");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }
 
   useEffect(() => {
     async function fetchEmails() {
@@ -57,6 +89,9 @@ export default function EmailsPage() {
     <div className="min-h-screen bg-black p-6">
       <h1 className="text-3xl font-bold mb-6 text-white">Inbox</h1>
 
+      {/* Sync Button */}
+      <SyncOutlookButton onFinished={refreshAfterSync} />
+
       {emails.length === 0 ? (
         <p className="text-gray-400">No emails found.</p>
       ) : (
@@ -71,6 +106,9 @@ export default function EmailsPage() {
                   <CardTitle className="text-lg font-semibold text-white flex-1 pr-4">
                     {email.subject}
                   </CardTitle>
+                  <span className="text-xs text-stone-400">
+                    {new Date(email.created_at || "").toLocaleString()}
+                  </span>
                   <Badge
                     className={`${getBadgeColor(email.classification)} uppercase text-xs shrink-0`}
                   >
@@ -85,7 +123,7 @@ export default function EmailsPage() {
                     <strong className="text-stone-300">To:</strong> {email.to}
                   </p>
                   <p className="text-sm mt-2 line-clamp-3 text-stone-300">
-                    {email.email_thread_text}
+                    {cleanEmailPreview(email.email_thread_text)}
                   </p>
                 </CardContent>
               </Card>

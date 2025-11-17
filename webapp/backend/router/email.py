@@ -59,9 +59,10 @@ def list_emails(db: Session = Depends(get_db)):
     #     Base.metadata.create_all(bind=engine)
 
     # 2️. Check if table already has data
-    emails = db.query(Email).all()
+    emails =  db.query(Email).order_by(Email.created_at.desc()).all()
+    ## Order by created_at in descending order (newest first)
 
-    ## Fetch from Mock Emails --
+    ## Fetch from Mock Emails -- DEPRECATED
     # if not emails:
     #     # Populate the table with mock emails
     #     for item in MOCK_EMAILS:
@@ -76,6 +77,8 @@ def list_emails(db: Session = Depends(get_db)):
     #     emails = db.query(Email).all()
 
     return emails
+
+
 
 
 # -----------------------------------------------------------------------------------------------------------------------
@@ -265,8 +268,11 @@ async def sync_outlook(db: Session = Depends(get_db)):
       4. Deduplicate by message_id
       5. Save new messages
     """
-
+    # --------------------------------------------------------
+    # 1. Load credentials
+    # --------------------------------------------------------
     # 1. Create client from .env
+    ##  Pulling the credentials needed for Microsoft Graph OAuth
     APPLICATION_ID = os.getenv("APPLICATION_ID")
     CLIENT_SECRET = os.getenv("CLIENT_SECRET")
     TENANT_ID = os.getenv("TENANT_ID")
@@ -276,6 +282,10 @@ async def sync_outlook(db: Session = Depends(get_db)):
     if not APPLICATION_ID or not CLIENT_SECRET:
         raise HTTPException(status_code=500, detail="Outlook client credentials missing in environment variables")
 
+    # --------------------------------------------------------
+    # 2. Create Outlook client
+    # --------------------------------------------------------
+    ## Instantiating the OutlookClient
     client = OutlookClient(
         client_id=APPLICATION_ID,
         client_secret=CLIENT_SECRET,
@@ -283,9 +293,11 @@ async def sync_outlook(db: Session = Depends(get_db)):
         redirect_uri=REDIRECT_URI,
         tenant_id=TENANT_ID,
     )
-
-    # 2. Fetch messages (using threadpool because OutlookClient is sync)
-    def fetch_all():
+     # --------------------------------------------------------
+    # 3. Fetch messages (threadpool because client is sync)
+    # --------------------------------------------------------
+    # Fetch messages (using threadpool because OutlookClient is sync)
+    def fetch_all(): 
         return list(client.fetch_messages(
             top=25,
             select=["id", "subject", "from", "toRecipients", "bodyPreview", "body", "receivedDateTime"],
@@ -300,12 +312,15 @@ async def sync_outlook(db: Session = Depends(get_db)):
     created = 0
     skipped = 0
 
-    # 3. Iterate & store to DB
+    # --------------------------------------------------------
+    # 4. Process each message
+    # --------------------------------------------------------
+    # Iterate & store to DB
     for msg in messages:
         record = transform_graph_message_to_email_record(msg)
         message_id = record["message_id"]
 
-        # Dedupe by message_id
+        # Dedupe by message_id. Prevents inserting the same Outlook email twice
         existing = db.query(Email).filter(Email.message_id == message_id).first()
         if existing:
             skipped += 1
@@ -320,6 +335,14 @@ async def sync_outlook(db: Session = Depends(get_db)):
         #     email_thread=record["body_content"] or record["body_preview"] or "",
         # )
 
+        # Parse Outlook received timestamp
+        received_str = record.get("received_datetime")  # depends on your transform fn
+        try:
+            from dateutil import parser
+            received_dt = parser.isoparse(received_str) if received_str else None
+        except Exception:
+            received_dt = None
+
         new_email = Email(
             message_id=record["message_id"],
             author=record["from_address"] or "Unknown",
@@ -327,6 +350,8 @@ async def sync_outlook(db: Session = Depends(get_db)):
             subject=record["subject"] or "(No subject)",
             email_thread_text=record["body_text"],
             email_thread_html=record["body_html"],
+            created_at=received_dt,  # ⬅ IMPORTANT: real Outlook timestamp
+
         )
 
         db.add(new_email)
