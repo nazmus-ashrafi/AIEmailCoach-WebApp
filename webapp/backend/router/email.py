@@ -36,7 +36,13 @@ from fastapi.concurrency import run_in_threadpool
 from core.outlook import OutlookClient, transform_graph_message_to_email_record
 from dotenv import load_dotenv
 
+# ---
+from webapp.backend.core.outlook import OutlookClient
+from webapp.backend.core.outlook import upsert_email, bulk_delete_by_ids
+from webapp.backend.models.delta_token import DeltaToken
 
+# ---
+from dateutil import parser
 
 router = APIRouter(prefix="/emails", tags=["Emails"])
 
@@ -133,7 +139,8 @@ async def classify_email(email_id: int, db: Session = Depends(get_db)):
         "author": email.author,
         "to": email.to,
         "subject": email.subject,
-        "email_thread": email.email_thread
+        # "email_thread": email.email_thread
+        "email_thread": email.email_thread_text
     })
 
     # 4️. Call the LLM graph
@@ -256,23 +263,137 @@ async def generate_draft(
 # -----------------------------------------------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------------------------------------------
 
+# ### Old "/sync_outlook" before Delta Sync
+# @router.post("/sync_outlook")
+# async def sync_outlook(db: Session = Depends(get_db)):
+#     """
+#     Sync emails from Outlook → DB.
+#     Steps:
+#       1. Instantiate OutlookClient
+#       2. Fetch messages from Microsoft Graph
+#       3. Transform to Email model
+#       4. Deduplicate by message_id
+#       5. Save new messages
+#     """
+#     # --------------------------------------------------------
+#     # 1. Load credentials
+#     # --------------------------------------------------------
+#     # 1. Create client from .env
+#     ##  Pulling the credentials needed for Microsoft Graph OAuth
+#     APPLICATION_ID = os.getenv("APPLICATION_ID")
+#     CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+#     TENANT_ID = os.getenv("TENANT_ID")
+#     REDIRECT_URI = os.getenv("REDIRECT_URI") or "http://localhost:8000"
+#     SCOPES = ["User.Read", "Mail.ReadWrite", "Mail.Send"]
+
+#     if not APPLICATION_ID or not CLIENT_SECRET:
+#         raise HTTPException(status_code=500, detail="Outlook client credentials missing in environment variables")
+
+#     # --------------------------------------------------------
+#     # 2. Create Outlook client
+#     # --------------------------------------------------------
+#     ## Instantiating the OutlookClient
+#     client = OutlookClient(
+#         client_id=APPLICATION_ID,
+#         client_secret=CLIENT_SECRET,
+#         scopes=SCOPES,
+#         redirect_uri=REDIRECT_URI,
+#         tenant_id=TENANT_ID,
+#     )
+#      # --------------------------------------------------------
+#     # 3. Fetch messages (threadpool because client is sync)
+#     # --------------------------------------------------------
+#     # Fetch messages (using threadpool because OutlookClient is sync)
+#     def fetch_all(): 
+#         return list(client.fetch_messages(
+#             top=25,
+#             select=["id", "subject", "from", "toRecipients", "bodyPreview", "body", "receivedDateTime"],
+#             folder="Inbox"
+#         ))
+    
+#     try:
+#         messages = await run_in_threadpool(fetch_all)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
+
+#     created = 0
+#     skipped = 0
+
+#     # --------------------------------------------------------
+#     # 4. Process each message
+#     # --------------------------------------------------------
+#     # Iterate & store to DB
+#     for msg in messages:
+#         record = transform_graph_message_to_email_record(msg)
+#         message_id = record["message_id"]
+
+#         # Dedupe by message_id. Prevents inserting the same Outlook email twice
+#         existing = db.query(Email).filter(Email.message_id == message_id).first()
+#         if existing:
+#             skipped += 1
+#             continue
+
+#         # Convert Outlook fields → my Email model schema
+#         # new_email = Email(
+#         #     message_id=record["message_id"],
+#         #     author=record["from_address"] or "Unknown",
+#         #     to=", ".join([r.get("address", "") for r in json.loads(record["to_recipients"] or "[]")]),
+#         #     subject=record["subject"] or "(No subject)",
+#         #     email_thread=record["body_content"] or record["body_preview"] or "",
+#         # )
+
+#         # Parse Outlook received timestamp
+#         received_str = record.get("received_datetime")  # depends on your transform fn
+#         try:
+#             from dateutil import parser
+#             received_dt = parser.isoparse(received_str) if received_str else None
+#         except Exception:
+#             received_dt = None
+
+#         new_email = Email(
+#             message_id=record["message_id"],
+#             author=record["from_address"] or "Unknown",
+#             to=", ".join([r.get("address", "") for r in json.loads(record["to_recipients"] or "[]")]),
+#             subject=record["subject"] or "(No subject)",
+#             email_thread_text=record["body_text"],
+#             email_thread_html=record["body_html"],
+#             created_at=received_dt,  # ⬅ IMPORTANT: real Outlook timestamp
+
+#         )
+
+#         db.add(new_email)
+#         created += 1
+
+#     db.commit()
+
+#     # 4. Return ingest summary
+#     return {
+#         "status": "success",
+#         "outlook_messages_fetched": len(messages),
+#         "created_in_db": created,
+#         "skipped_existing": skipped,
+#     }
+
+
+# -----------------------------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------------------------------------
+
+### New  "sync_outlook.py" (Delta Sync Version)
 
 @router.post("/sync_outlook")
 async def sync_outlook(db: Session = Depends(get_db)):
     """
-    Sync emails from Outlook → DB.
-    Steps:
-      1. Instantiate OutlookClient
-      2. Fetch messages from Microsoft Graph
-      3. Transform to Email model
-      4. Deduplicate by message_id
-      5. Save new messages
+    Fast, minimal, production-ready Outlook → DB delta sync.
+
+    Behavior:
+      • On first run: downloads full Inbox once
+      • On later runs: only changes (added/updated/deleted)
+      • Deleted messages removed from DB
+      • Upserts new + updated messages
+      • Delta token stored automatically after each sync
     """
-    # --------------------------------------------------------
-    # 1. Load credentials
-    # --------------------------------------------------------
-    # 1. Create client from .env
-    ##  Pulling the credentials needed for Microsoft Graph OAuth
+
+    # 1️ Load MS Graph OAuth credentials
     APPLICATION_ID = os.getenv("APPLICATION_ID")
     CLIENT_SECRET = os.getenv("CLIENT_SECRET")
     TENANT_ID = os.getenv("TENANT_ID")
@@ -280,12 +401,9 @@ async def sync_outlook(db: Session = Depends(get_db)):
     SCOPES = ["User.Read", "Mail.ReadWrite", "Mail.Send"]
 
     if not APPLICATION_ID or not CLIENT_SECRET:
-        raise HTTPException(status_code=500, detail="Outlook client credentials missing in environment variables")
+        raise HTTPException(500, "Missing Outlook OAuth env vars")
 
-    # --------------------------------------------------------
-    # 2. Create Outlook client
-    # --------------------------------------------------------
-    ## Instantiating the OutlookClient
+    # 2️ Outlook client
     client = OutlookClient(
         client_id=APPLICATION_ID,
         client_secret=CLIENT_SECRET,
@@ -293,76 +411,65 @@ async def sync_outlook(db: Session = Depends(get_db)):
         redirect_uri=REDIRECT_URI,
         tenant_id=TENANT_ID,
     )
-     # --------------------------------------------------------
-    # 3. Fetch messages (threadpool because client is sync)
-    # --------------------------------------------------------
-    # Fetch messages (using threadpool because OutlookClient is sync)
-    def fetch_all(): 
-        return list(client.fetch_messages(
-            top=25,
-            select=["id", "subject", "from", "toRecipients", "bodyPreview", "body", "receivedDateTime"],
-            folder="Inbox"
-        ))
-    
+
+    # 3️ Load delta token (create on first run)
+    token_row = db.query(DeltaToken).filter(DeltaToken.folder == "inbox").first()
+    if token_row is None:
+        token_row = DeltaToken(folder="inbox", delta_token=None)
+        db.add(token_row)
+        db.commit()
+        db.refresh(token_row)
+
+    # 4️ Run delta sync (threadpool because OutlookClient is sync)
+    def run_delta():
+        return client.delta_messages(folder="Inbox", delta_token=token_row.delta_token)
+
     try:
-        messages = await run_in_threadpool(fetch_all)
+        changes, new_delta = await run_in_threadpool(run_delta)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(500, f"Delta sync failed: {e}")
 
-    created = 0
-    skipped = 0
+    inserted = 0
+    updated = 0
+    deleted_ids = []
 
-    # --------------------------------------------------------
-    # 4. Process each message
-    # --------------------------------------------------------
-    # Iterate & store to DB
-    for msg in messages:
-        record = transform_graph_message_to_email_record(msg)
-        message_id = record["message_id"]
+    # 5️ Apply delta changes to DB
+    for item in changes:
 
-        # Dedupe by message_id. Prevents inserting the same Outlook email twice
-        existing = db.query(Email).filter(Email.message_id == message_id).first()
-        if existing:
-            skipped += 1
+        # --- A. Deleted messages ---
+        if "@removed" in item:
+            deleted_ids.append(item["id"])
             continue
 
-        # Convert Outlook fields → my Email model schema
-        # new_email = Email(
-        #     message_id=record["message_id"],
-        #     author=record["from_address"] or "Unknown",
-        #     to=", ".join([r.get("address", "") for r in json.loads(record["to_recipients"] or "[]")]),
-        #     subject=record["subject"] or "(No subject)",
-        #     email_thread=record["body_content"] or record["body_preview"] or "",
-        # )
+        # --- B. Convert date string → datetime ---
+        received_str = item.get("receivedDateTime")
+        received_dt = parser.isoparse(received_str) if received_str else None
+        item["received_at"] = received_dt  # For upsert_email
 
-        # Parse Outlook received timestamp
-        received_str = record.get("received_datetime")  # depends on your transform fn
-        try:
-            from dateutil import parser
-            received_dt = parser.isoparse(received_str) if received_str else None
-        except Exception:
-            received_dt = None
+        # --- C. Upsert new/updated messages ---
+        existing = db.query(Email).filter(Email.message_id == item["id"]).first()
+        if existing:
+            updated += 1
+        else:
+            inserted += 1
 
-        new_email = Email(
-            message_id=record["message_id"],
-            author=record["from_address"] or "Unknown",
-            to=", ".join([r.get("address", "") for r in json.loads(record["to_recipients"] or "[]")]),
-            subject=record["subject"] or "(No subject)",
-            email_thread_text=record["body_text"],
-            email_thread_html=record["body_html"],
-            created_at=received_dt,  # ⬅ IMPORTANT: real Outlook timestamp
+        upsert_email(db, item)  # Handles both insert & update
 
-        )
+    # Bulk delete deleted messages
+    deleted = bulk_delete_by_ids(db, deleted_ids) if deleted_ids else 0
 
-        db.add(new_email)
-        created += 1
+    # 6️ Persist new delta token
+    if new_delta:
+        token_row.delta_token = new_delta
 
+    # 7️ Commit DB changes once
     db.commit()
 
-    # 4. Return ingest summary
+    # 8️ Return result
     return {
-        "status": "success",
-        "outlook_messages_fetched": len(messages),
-        "created_in_db": created,
-        "skipped_existing": skipped,
+        "status": "ok",
+        "inserted": inserted,
+        "updated": updated,
+        "deleted": deleted,
+        "new_delta_token_saved": bool(new_delta),
     }

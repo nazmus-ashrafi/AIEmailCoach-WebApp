@@ -33,6 +33,11 @@ from bs4 import BeautifulSoup
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+
+# ------------------------------------------------------------
+# Directories for tokens
+# ------------------------------------------------------------
+
 ## Microsoft Graph - API Base Endpoint
 MS_GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"
 
@@ -41,11 +46,18 @@ DEFAULT_TOKEN_DIR = Path(__file__).resolve().parents[2] / ".tokens"
 DEFAULT_TOKEN_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_REFRESH_TOKEN_FILE = DEFAULT_TOKEN_DIR / "ms_refresh_token.txt"
 
+# Delta token file (per folder)
+def delta_token_file(folder: str) -> Path:
+    # Example: .tokens/delta_inbox.txt
+    name = folder.lower().replace(" ", "_")
+    return DEFAULT_TOKEN_DIR / f"delta_{name}.txt"
+
 
 class OutlookClient:
     """
     Minimal Outlook/Microsoft Graph client for a single-user MVP.
     Custom client wrapper built around the Microsoft Graph SDK.
+    Includes delta sync support.
     """
 
     def __init__(
@@ -90,9 +102,9 @@ class OutlookClient:
             authority=self.authority,
         )
 
-    # ---------------------------
-    # Token helpers
-    # ---------------------------
+    # ------------------------------------------------------------
+    # Token helpers / Refresh token I/O
+    # ------------------------------------------------------------
     def _read_refresh_token(self) -> Optional[str]:
         if self.refresh_token_file.exists():
             token = self.refresh_token_file.read_text().strip()
@@ -106,6 +118,23 @@ class OutlookClient:
         self.refresh_token_file.write_text(refresh_token)
         logger.info("Wrote refresh token to %s", self.refresh_token_file)
 
+    # ------------------------------------------------------------
+    # Delta token I/O (per folder)
+    # ------------------------------------------------------------
+    def _read_delta_token(self, folder: str) -> Optional[str]:
+        file = delta_token_file(folder)
+        if file.exists():
+            return file.read_text().strip()
+        return None
+
+    def _write_delta_token(self, folder: str, token: str) -> None:
+        file = delta_token_file(folder)
+        file.write_text(token)
+        logger.info("Stored delta token for folder %s → %s", folder, file)
+
+    # ------------------------------------------------------------
+    # Auth: Initial flow
+    # ------------------------------------------------------------
     def generate_initial_refresh_token(self) -> None:
         """
         Manual one-time flow:
@@ -143,6 +172,9 @@ class OutlookClient:
         else:
             raise RuntimeError(f"Failed to get tokens: {token_response}")
 
+    # ------------------------------------------------------------
+    # Auth: acquire access token using stored refresh token
+    # ------------------------------------------------------------
     def _acquire_token(self) -> str:
         """
         Acquire an access token using the stored refresh token.
@@ -181,6 +213,9 @@ class OutlookClient:
         token = self._acquire_token()
         return {"Authorization": f"Bearer {token}", "Accept": "application/json"}
 
+    # ------------------------------------------------------------
+    # Traditional paginated fetch (deprecate)
+    # ------------------------------------------------------------
     def fetch_messages(
         self,
         top: int = 25,
@@ -245,6 +280,71 @@ class OutlookClient:
         finally:
             client.close()
 
+    # ------------------------------------------------------------
+    # NEW: Delta sync
+    # ------------------------------------------------------------
+    def delta_messages(
+        self, 
+        folder: str = "Inbox",
+        delta_token: str | None = None
+        ) -> tuple[list[dict], Optional[str]]:
+        """
+        Perform delta sync for a folder.
+
+        Returns:
+            (changes, new_delta_link)
+        """
+        #.tokens/delta_inbox.txt (or delta_sentitems.txt)
+        # prev_delta = self._read_delta_token(folder)
+
+        # Use provided delta_token first, otherwise read from file
+        if delta_token:
+            next_url = delta_token
+        else:
+            prev_delta = self._read_delta_token(folder)
+            ## 	First time: Fetch full pages once (give me every message in Inbox 1st page - 25–50 messages (page size varies)), 
+            ## and also Graph returns a delta token (Start a new delta session).
+            next_url = f"{MS_GRAPH_BASE_URL}/me/mailFolders/{folder}/messages/delta"
+
+        headers = self._default_headers()
+        all_changes = []
+        new_delta_link = None
+
+        with httpx.Client(timeout=30.0) as client:
+            while next_url: # Gets page 2,add messages, gets page 3.....
+                resp = client.get(next_url, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+                ## Example response:
+                # {
+                #     "value": [ ... changes ... ],
+                #     "@odata.nextLink": "...",       ← next page
+                #     "@odata.deltaLink": "https://graph.microsoft.com/....?$skiptoken=abc123"       ← end of sync
+                # }
+
+                # Add changed/new/deleted messages
+                if "value" in data:
+                    # Extract the changed messages
+                    all_changes.extend(data["value"])
+
+                # Continue until @odata.deltaLink is found
+                ## When Graph returns a deltaLink, it means: Sync is complete, Here’s the new checkpoint, Save this and use it next time
+                next_url = data.get("@odata.nextLink")
+
+                if data.get("@odata.deltaLink"):
+                    new_delta_link = data["@odata.deltaLink"]
+
+        # Persist the new token (Save the new delta token)
+        ## Saved to "webapp/backend/.tokens/delta_inbox.txt"
+        if new_delta_link:
+            self._write_delta_token(folder, new_delta_link)
+
+        ## Return the list of changes and the new delta token
+        return all_changes, new_delta_link
+
+    # ------------------------------------------------------------
+    # Reply method
+    # ------------------------------------------------------------
     def reply_to_message(self, message_id: str, body_text: str, to_recipients: Optional[List[Dict[str, str]]] = None) -> None:
         """
         Create a reply draft to 'message_id', set the message body, then send it.
@@ -322,7 +422,10 @@ class OutlookClient:
 #         # add more mappings as needed
 #     }
 
-## Helper
+
+# ------------------------------------------------------------
+# HTML helpers / transformer (unchanged)
+# ------------------------------------------------------------
 def html_to_text(html: str) -> str:
     if not html:
         return ""
@@ -373,6 +476,130 @@ def transform_graph_message_to_email_record(msg: Dict[str, Any]) -> Dict[str, An
         "sent_datetime": msg.get("sentDateTime"),
     }
 
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+## SERVICES
+## backend/services/email_ingest.py
+
+from sqlalchemy.orm import Session
+from models.email import Email
+from typing import Iterable
+from dateutil import parser
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def upsert_email(db: Session, outlook_msg: dict) -> Email:
+    """
+    Insert or update an Email record based on Microsoft Graph message JSON.
+
+    Called during delta sync when a message is new or updated.
+    """
+
+    message_id = outlook_msg["id"]
+
+    # Lookup existing record
+    email = db.query(Email).filter(Email.message_id == message_id).first()
+
+    # Create new record if not found
+    if email is None:
+        email = Email(message_id=message_id)
+        db.add(email)
+
+    # -----------------------------
+    # Map & normalize fields
+    # -----------------------------
+    sender = outlook_msg.get("from", {}).get("emailAddress", {}).get("address")
+    to = ", ".join(
+        [t["emailAddress"]["address"] for t in outlook_msg.get("toRecipients", [])]
+    )
+
+    email.author = sender or "unknown"
+    email.to = to or ""
+    email.subject = outlook_msg.get("subject", "")
+
+    # Ensure received_at is a datetime
+    received_dt = outlook_msg.get("received_at")
+    if not isinstance(received_dt, datetime):
+        received_str = outlook_msg.get("receivedDateTime")
+        if received_str:
+            received_dt = parser.isoparse(received_str)
+        else:
+            received_dt = None
+    email.received_at = received_dt
+
+    # Text fallback logic
+    email.email_thread_text = outlook_msg.get("bodyPreview", "")
+
+    # Full HTML
+    email.email_thread_html = outlook_msg.get("body", {}).get("content", "")
+
+    # Outlook timestamp → stored in created_at (must be datetime)
+    created_dt = outlook_msg.get("created_at") or outlook_msg.get("receivedDateTime")
+    if not isinstance(created_dt, datetime) and created_dt:
+        created_dt = parser.isoparse(created_dt)
+    email.created_at = created_dt
+
+    return email
+
+
+def delete_email(db: Session, message_id: str, soft_delete: bool = False) -> bool:
+    """
+    Delete a single email by message_id.
+
+    Behavior:
+      - If soft_delete=True AND the Email model has an `is_deleted` attribute,
+        sets `is_deleted=True` and returns True.
+      - Otherwise performs a hard delete.
+
+    Returns:
+        True if a row was changed/deleted, False if no matching email found.
+    """
+    email = db.query(Email).filter(Email.message_id == message_id).first()
+    if not email:
+        logger.debug("delete_email: no email found for message_id=%s", message_id)
+        return False
+
+    if soft_delete and hasattr(Email, "is_deleted"):
+        email.is_deleted = True
+        db.add(email)
+        logger.info("Soft-deleted email message_id=%s (id=%s)", message_id, email.id)
+        return True
+
+    db.query(Email).filter(Email.message_id == message_id).delete(synchronize_session=False)
+    logger.info("Hard-deleted email message_id=%s", message_id)
+    return True
+
+
+def bulk_delete_by_ids(db: Session, message_ids: Iterable[str], soft_delete: bool = False) -> int:
+    """
+    Efficiently delete many emails at once.
+
+    - If soft_delete=True and model supports `is_deleted`, performs a single UPDATE.
+    - Otherwise performs a single bulk DELETE.
+
+    Returns:
+        Number of rows affected (int).
+    """
+    ids = list(set(message_ids))
+    if not ids:
+        return 0
+
+    if soft_delete and hasattr(Email, "is_deleted"):
+        updated_count = db.query(Email).filter(Email.message_id.in_(ids)).update(
+            {Email.is_deleted: True}, synchronize_session=False
+        )
+        logger.info("Soft-deleted %d emails (bulk).", updated_count)
+        return updated_count
+
+    deleted_count = db.query(Email).filter(Email.message_id.in_(ids)).delete(synchronize_session=False)
+    logger.info("Hard-deleted %d emails (bulk).", deleted_count)
+    return deleted_count
+
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # ---------------------------
 # Example / quick test runner (manual usage)

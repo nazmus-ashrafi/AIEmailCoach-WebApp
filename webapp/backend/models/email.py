@@ -1,8 +1,11 @@
 '''
 - "SQLAlchemy models" to define how data is structured and persisted
 - How data is stored (in memory, SQLite, Postgres, etc.)
+---------------------------------------------------------------------------
+	•	Email
+	•	EmailClassification
 
-
+These two belong together because they form a logical parent/child pair, are always used together, and are only separated by a relationship.
 '''
 
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text

@@ -348,5 +348,75 @@ git commit -m "feat[frontend/backend]: add Outlook sync button, parse received t
 	•	Add animations for new messages synced
 	•	Track sync performance and metrics (e.g., via LangSmith)
 
+⸻
+
+## Commit 11 - Outlook Delta Sync implementation for Inbox
+
+<!-- Nov 18, 2025 -->
+
+git commit -m "feat[outlook_sync]: full delta sync implementation for Inbox"
+
+- Added DeltaToken table to track delta tokens per folder
+- Implemented OutlookClient.delta_messages() with auto-pagination
+- Added upsert_email() and delete_email() helpers
+- Created /sync_outlook route using delta sync:
+    • handles new, updated, deleted messages
+    • stores and reuses delta token
+    • one-time full inbox initialization
+- Ensures datetime conversion for SQLite compatibility
+- Drop-in compatible with existing FastAPI + SQLAlchemy stack
+
+---
+
+### Reasoning for "Delta sync implementation for Inbox"
+
+	/sync_outlook endpoint should handle:
+	•	deletions in Outlook
+	•	updates (e.g., marking as read/unread)
+	•	moves between folders
+	•	restored emails
+	•	soft-deleted items in Outlook
+
+	Even for an MVP, the Microsoft Graph Delta API is much simpler and cleaner than trying to manually reconcile emails. 
+	So I have decided to use the Microsoft Graph Delta API to eliminate:
+		•	deduping
+		•	reconciliation
+		•	polling entire mailbox
+		•	manually detecting deletions
+		•	expensive queries
 
 
+### What I Built
+
+	Implemented a full production-grade delta sync for Outlook Inbox using Microsoft Graph. The implementation includes: 
+		1.	DeltaToken Table: Tracks the last delta token per folder, supports one-time full sync and incremental updates. 
+		2.	OutlookClient.delta_messages(): Handles delta queries, auto-paginates through Microsoft Graph pages, returns list of changes + new delta token. 
+		3.	Upsert & Delete Helpers: upsert_email() safely updates or inserts messages; delete_email() removes deleted messages. 
+		4.	/sync_outlook Route: 
+			•	Runs delta sync in threadpool 
+			•	Handles new, updated, deleted messages 
+			•	Persists new delta token 
+			•	Commits changes once per sync 
+		5.	One-Time Initialization: Full inbox ingestion on first run, then incremental deltas only. 
+		6.	SQLite Safe: Ensures datetime fields (received_at, created_at) are Python datetime objects to prevent TypeErrors. 
+
+	Impact:
+		•	Inbox stays mirrored accurately in the database. 
+		•	Deletes and updates are synchronized correctly. 
+		•	Sync is fast, delta-based; avoids fetching entire mailbox repeatedly. 
+		•	Ready for future enhancements (multi-folder sync, background scheduling, logging, frontend triggers). 
+
+	Next Steps:
+		•	Add structured logging for audit and debugging. 
+		•	Create automated tests to simulate delta changes and deletions. 
+		•	Extend to other folders (Sent, Archive, etc.) if needed. 
+
+### Impact:
+	•	Inbox stays mirrored accurately in the database.
+	•	Deletes and updates are synchronized correctly.
+	•	Sync is fast, delta-based; avoids fetching entire mailbox repeatedly.
+	•	Ready for future enhancements (multi-folder sync, background scheduling, logging, frontend triggers).
+
+### Next Steps in this Feature:
+	•	Extend to other folders (Sent, Archive, etc.) if needed.
+	•	Create automated tests to simulate delta changes and deletions.
