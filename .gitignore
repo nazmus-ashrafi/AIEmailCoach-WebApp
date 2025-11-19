@@ -167,3 +167,9 @@ uv.lock
 data
 output.jsonl
 notes.txt
+
+
+## App specific tokens and dbs
+webapp/backend/core/refresh_token.txt
+webapp/backend/databse.db
+webapp/.tokens

@@ -356,6 +356,7 @@ git commit -m "feat[frontend/backend]: add Outlook sync button, parse received t
 
 git commit -m "feat[outlook_sync]: full delta sync implementation for Inbox"
 
+
 - Added DeltaToken table to track delta tokens per folder
 - Implemented OutlookClient.delta_messages() with auto-pagination
 - Added upsert_email() and delete_email() helpers
@@ -420,3 +421,154 @@ git commit -m "feat[outlook_sync]: full delta sync implementation for Inbox"
 ### Next Steps in this Feature:
 	•	Extend to other folders (Sent, Archive, etc.) if needed.
 	•	Create automated tests to simulate delta changes and deletions.
+
+
+⸻
+
+## Commit 12 - Backend Restructure
+
+<!-- Nov 19, 2025 -->
+
+git commit -m "refactor: restructure backend to feature-based architecture"
+
+
+**My Current backend Architecture:**
+
+1. **Core Layer** (`webapp/backend/core/`)
+   - `outlook.py`: OutlookClient with Microsoft Graph integration
+   - Handles OAuth flow, token management, message fetching, and delta sync
+
+2. **Database Layer** (`webapp/backend/db/`)
+   - `database.py`: SQLAlchemy setup with engine, session management, and table creation
+
+3. **Models Layer** (`webapp/backend/models/`)
+   - SQLAlchemy ORM models
+   - `delta_token.py`: Stores delta sync tokens
+   - `email.py`: Email data model
+
+4. **Routers Layer** (`webapp/backend/router/`)
+   - `email.py`: API endpoints for email features
+   - Example: `/sync_outlook` endpoint
+
+5. **Schemas Layer** (`webapp/backend/schemas/`)
+   - `email.py`: Pydantic models for request/response validation
+
+6. **Services Layer** (`webapp/backend/services/`)
+   - `email_ingest.py`: Business logic consumed by routers
+   - Example: `upsert_email()` function used by the sync endpoint
+
+**Pattern:**
+This is a clean layered architecture:
+- **Routers** → define endpoints
+- **Services** → contain business logic
+- **Models** → define database schema
+- **Schemas** → define API contracts
+- **Core** → external integrations (Outlook)
+- **DB** → database configuration
+
+This is a solid, maintainable structure, however it is **layer-based (horizontal slicing)**.
+
+For this project I want to have **feature-based (vertical slicing)**, because:
+-  The feature is self-contained (Increased seperation == increased organization == increased navigation speed == faster development speed)
+-  I can focus on one feature folder at a time
+- Each feature is a mini-app (each mini-app can be a separate microservices later)
+
+
+## **Comparison**
+
+| Aspect | Current Structure (Layer-based) |  Re-structure (Feature-based) |
+|--------|------------------------------|-----------------------------------|
+| **Organization** | By technical layer (models/, routers/, services/) | By business feature (auth/, todo/, email/) |
+| **Pros** | Clear separation of concerns, easy to find "all models" or "all routes" | Related code lives together, easier to work on one feature in isolation |
+| **Cons** | Jump between folders when working on a feature | Some duplication of structure per feature |
+| **Scalability** | Can get messy with many features | Scales well - each feature is self-contained |
+| **Onboarding** | Need to understand entire layer structure | Can focus on one feature folder at a time |
+
+## **Mapping my current layer based structure to feature-based structure**
+
+**Current:**
+```
+webapp/backend/
+├── core/
+│   └── outlook.py
+├── db/
+│   └── database.py
+├── models/              # SQLAlchemy models
+│   ├── delta_token.py
+│   └── email.py
+├── schemas/             # Pydantic models
+│   └── email.py
+├── routers/
+│   └── email.py
+└── services/
+    └── email_ingest.py
+```
+
+**Re-structure (Feature-based):**
+```
+webapp/backend/
+├── core/               # or "shared"
+│   └── outlook.py
+├── database/
+│   └── database.py
+├── entities/           # ALL SQLAlchemy models
+│   ├── delta_token.py
+│   └── email.py
+├── email/              # Email feature
+│   ├── schemas.py        # Pydantic schemas
+│   ├── service.py      # email_ingest logic
+│   └── router.py       # email routes
+└── auth/               # Auth feature (will be added)
+    ├── schemas.py
+    ├── service.py
+    └── router.py
+```
+
+## **Migration Steps**
+
+Steps I took to restructure the backend:
+
+1. **Rename `models/` → `entities/`** (SQLAlchemy models stay centralized)
+2. **Delete `schemas/` and `routers/` and `services/` folders (ie. moved content - see 4)**
+3. **Create feature folders:**
+   ```bash
+   mkdir webapp/backend/email
+   ```
+4. **Move and rename files:**
+   - `schemas/email.py` → `email/model.py` (Pydantic)
+   - `routers/email.py` → `email/router.py`
+   - `services/email_ingest.py` → `email/service.py`
+
+5. **Update imports** in each file:
+
+	(Update all import paths to relative imports)
+
+	Example:
+
+   ```python
+   # In emails/router.py
+   from emails.service import upsert_email  # instead of from services.email_ingest
+   from emails.model import schemas    # instead of from schemas.email
+   from entities.email import Email       # instead of from models.email
+   ```
+
+-----------
+
+
+
+
+⸻
+
+## Commit 13 - Login Feature
+
+TBD
+
+
+High Priority (Security/Correctness) from delta sync feature:
+1. ⚠️ Security: Encrypt refresh tokens (currently plain text)
+2. ⚠️ Multi-user support (currently single-user only)
+
+Issues can be solved using:
+- User authentication system (login/signup)
+- Per-user token storage in database
+- Per-user OAuth flow (each user authorizes their own Outlook account)

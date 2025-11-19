@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
-from router import email
+from emails import router as email
 from db.database import engine, create_tables
 from sqlalchemy import inspect, text
 

@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import inspect
 from db.database import get_db, engine, Base
 
-from models.email import Email, EmailClassification # SQLAlchemy model
-from schemas.email import EmailResponse, EmailClassificationResponse  # Pydantic schema
+from entities.email import Email, EmailClassification # SQLAlchemy model
+from emails.schemas import EmailResponse, EmailClassificationResponse  # Pydantic Schema
 
 from email_mock import MOCK_EMAILS
 import os
@@ -38,8 +38,8 @@ from dotenv import load_dotenv
 
 # ---
 from webapp.backend.core.outlook import OutlookClient
-from webapp.backend.core.outlook import upsert_email, bulk_delete_by_ids
-from webapp.backend.models.delta_token import DeltaToken
+from webapp.backend.emails.service import upsert_email, bulk_delete_by_ids
+from webapp.backend.entities.delta_token import DeltaToken
 
 # ---
 from dateutil import parser
@@ -378,7 +378,7 @@ async def generate_draft(
 # -----------------------------------------------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------------------------------------------
 
-### New  "sync_outlook.py" (Delta Sync Version)
+### "sync_outlook.py" (Delta Sync Version)
 
 @router.post("/sync_outlook")
 async def sync_outlook(db: Session = Depends(get_db)):
@@ -396,23 +396,37 @@ async def sync_outlook(db: Session = Depends(get_db)):
     # 1️ Load MS Graph OAuth credentials
     APPLICATION_ID = os.getenv("APPLICATION_ID")
     CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-    TENANT_ID = os.getenv("TENANT_ID")
+
+    # tenant_id
+    # None or "common" → Personal Microsoft accounts (Outlook.com, Live.com)
+    # Specific tenant ID → Organization/work accounts
+    TENANT_ID = os.getenv("TENANT_ID") # consumer
     REDIRECT_URI = os.getenv("REDIRECT_URI") or "http://localhost:8000"
+
+    # Scopes define permissions:
+    #     User.Read - Access user profile
+    #     Mail.ReadWrite - Read/modify emails
+    #     Mail.Send - Send emails (for replies)
     SCOPES = ["User.Read", "Mail.ReadWrite", "Mail.Send"]
 
     if not APPLICATION_ID or not CLIENT_SECRET:
         raise HTTPException(500, "Missing Outlook OAuth env vars")
 
-    # 2️ Outlook client
+    # 2️ Outlook client initialization
+        # - Creates MSAL (Microsoft Authentication Library) client
+        # - Configures OAuth authority: `https://login.microsoftonline.com/{tenant_id}`
+        # - Points to stored refresh token: `.tokens/ms_refresh_token.txt`
     client = OutlookClient(
         client_id=APPLICATION_ID,
         client_secret=CLIENT_SECRET,
         scopes=SCOPES,
-        redirect_uri=REDIRECT_URI,
+        redirect_uri=REDIRECT_URI, 
         tenant_id=TENANT_ID,
     )
 
     # 3️ Load delta token (create on first run)
+    ## Delta Token is a checkpoint URL from Microsoft Graph
+    ## Example: https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/delta?$skiptoken=abc123xyz
     token_row = db.query(DeltaToken).filter(DeltaToken.folder == "inbox").first()
     if token_row is None:
         token_row = DeltaToken(folder="inbox", delta_token=None)
@@ -420,12 +434,21 @@ async def sync_outlook(db: Session = Depends(get_db)):
         db.commit()
         db.refresh(token_row)
 
-    # 4️ Run delta sync (threadpool because OutlookClient is sync)
+    # 4️ Run delta sync (threadpool because OutlookClient is sync, but FastAPI route is async)
     def run_delta():
         return client.delta_messages(folder="Inbox", delta_token=token_row.delta_token)
 
     try:
+        ## run_in_threadpool() prevents blocking the FastAPI's async event loop
+        ## Allows other requests to be processed during sync
         changes, new_delta = await run_in_threadpool(run_delta)
+
+        # ## Example return by run_delta
+        # changes = [
+        #     {"id": "msg1", "subject": "Welcome", "receivedDateTime": "2025-01-01T10:00:00Z"},
+        #     {"id": "msg2", "subject": "Invoice", "receivedDateTime": "2025-01-02T11:00:00Z"},
+        #     # ... all 500 emails in Inbox
+        # ]
     except Exception as e:
         raise HTTPException(500, f"Delta sync failed: {e}")
 
@@ -442,6 +465,9 @@ async def sync_outlook(db: Session = Depends(get_db)):
             continue
 
         # --- B. Convert date string → datetime ---
+        ## Database expects Python datetime objects
+        ## Graph API datetime format:  "receivedDateTime": "2025-11-19T14:30:00Z"
+        ## After parsisng: item["received_at"] = datetime(2025, 11, 19, 14, 30, 0, tzinfo=timezone.utc)
         received_str = item.get("receivedDateTime")
         received_dt = parser.isoparse(received_str) if received_str else None
         item["received_at"] = received_dt  # For upsert_email
@@ -454,6 +480,7 @@ async def sync_outlook(db: Session = Depends(get_db)):
             inserted += 1
 
         upsert_email(db, item)  # Handles both insert & update
+        ## Upsert inserts the updated value if the if already exists in the table
 
     # Bulk delete deleted messages
     deleted = bulk_delete_by_ids(db, deleted_ids) if deleted_ids else 0
@@ -462,10 +489,17 @@ async def sync_outlook(db: Session = Depends(get_db)):
     if new_delta:
         token_row.delta_token = new_delta
 
-    # 7️ Commit DB changes once
+    # 7️ Commit DB changes once (Atomic Commit)
+    # What gets committed?
+        # New/updated Email records (from upsert_email())
+        # Deleted Email records (from bulk_delete_by_ids())
+        # Updated DeltaToken (new checkpoint)
+    # Why single commit at the end?
+        # Atomicity: All changes succeed or all fail
+        # Performance: One disk write vs. hundreds
     db.commit()
 
-    # 8️ Return result
+    # 8️ Return result (Statistics)
     return {
         "status": "ok",
         "inserted": inserted,
