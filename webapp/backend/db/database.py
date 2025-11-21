@@ -22,4 +22,6 @@ def get_db():
 
 
 def create_tables():
+    ## Creates new tables when we run our application for the first time.
+    ## Needs to be uncommented/deactivated when in production
     Base.metadata.create_all(bind=engine)

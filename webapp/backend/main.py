@@ -2,9 +2,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from emails import router as email
+from auth import router as auth
+from users import router as users
 from db.database import engine, create_tables
 from sqlalchemy import inspect, text
 
+# Import all entity models so SQLAlchemy can resolve relationships
+from entities.users import User
+from entities.email_account import EmailAccount
+from entities.email import Email, EmailClassification
+# from entities.delta_token import DeltaToken
 
 
 app = FastAPI(
@@ -46,8 +53,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ Register the router AFTER CORS
+# ✅ Register routers
 app.include_router(email.router, prefix="/api")
+app.include_router(auth.router, prefix="/api")
+app.include_router(users.router, prefix="/api")  # ← Added users router
 
 
 if __name__ == "__main__":

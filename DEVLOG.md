@@ -559,16 +559,136 @@ Steps I took to restructure the backend:
 
 ⸻
 
-## Commit 13 - Login Feature
+## Commit 13 - Authentication & User Management System
 
-TBD
+<!-- Nov 21, 2025 -->
 
+git commit -m "feat: implement JWT authentication and user management modules"
 
-High Priority (Security/Correctness) from delta sync feature:
-1. ⚠️ Security: Encrypt refresh tokens (currently plain text)
-2. ⚠️ Multi-user support (currently single-user only)
+### What I Built
+- **Auth Module** (`webapp/backend/auth/`)
+  - User registration with email validation and password hashing
+  - JWT-based login with OAuth2 password flow
+  - Token generation and verification
+  - Protected endpoint to get current user info
+  
+- **Users Module** (`webapp/backend/users/`)
+  - Get current user profile
+  - Update user profile (name, email)
+  - Change password with confirmation validation
+  - Delete user account (cascades to all associated data)
 
-Issues can be solved using:
-- User authentication system (login/signup)
-- Per-user token storage in database
-- Per-user OAuth flow (each user authorizes their own Outlook account)
+- **Supporting Infrastructure**
+  - Custom exception classes (`AuthenticationError`, `UserAlreadyExistsError`)
+  - JWT configuration in `core/config.py` (externalized to environment variables)
+  - Entity model imports in `main.py` to resolve SQLAlchemy relationships
+  - Fixed `DeltaToken` foreign key relationship to `EmailAccount`
+
+### Technical Details
+
+**Auth Module:**
+- `schemas.py`: Pydantic models for registration, token, and token data
+- `service.py`: 
+  - Bcrypt password hashing with `passlib`
+  - JWT token creation/verification with `PyJWT`
+  - User authentication logic
+  - OAuth2PasswordBearer for protected routes
+- `router.py`: Three endpoints
+  - `POST /api/auth/register` - Create new user
+  - `POST /api/auth/token` - Login and get JWT
+  - `GET /api/auth/me` - Get current user (protected)
+
+**Users Module:**
+- `schemas.py`: Models for user response, profile updates, password changes
+- `service.py`:
+  - Get user by ID
+  - Update profile with email uniqueness validation
+  - Change password with current password verification and confirmation matching
+  - Delete account with cascade to EmailAccounts, Emails, EmailClassifications
+- `router.py`: Four protected endpoints
+  - `GET /api/users/me` - Get profile
+  - `PUT /api/users/me` - Update profile
+  - `PUT /api/users/me/password` - Change password
+  - `DELETE /api/users/me` - Delete account
+
+**Security Features:**
+- Passwords hashed with bcrypt (resistant to brute-force)
+- JWT tokens with HS256 algorithm and expiration (30 min default)
+- Secret key and algorithm externalized to `.env`
+- Password confirmation validation to prevent typos
+- Protected routes require valid JWT in Authorization header
+
+**Database Relationships:**
+```
+User (1) → EmailAccount (Many) → Email (Many) → EmailClassification (Many)
+                              ↓
+                         DeltaToken (Many)
+```
+
+### Dependencies Added
+```bash
+uv add passlib[bcrypt]      # Password hashing
+uv add PyJWT                # JWT token management
+uv add python-multipart     # Form data parsing for OAuth2
+```
+
+### Configuration
+Added to `core/config.py`:
+```python
+JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY")
+JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM")
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+```
+
+Required in `.env`:
+```bash
+JWT_SECRET_KEY=your-secret-key-here
+JWT_ALGORITHM=HS256
+```
+
+### Example API Flow
+
+**1. Register:**
+```bash
+POST /api/auth/register
+{
+  "email": "user@example.com",
+  "first_name": "John",
+  "last_name": "Doe",
+  "password": "securepass123"
+}
+→ 201 Created
+```
+
+**2. Login:**
+```bash
+POST /api/auth/token
+Form data: username=user@example.com&password=securepass123
+→ { "access_token": "eyJhbGc...", "token_type": "bearer" }
+```
+
+**3. Access Protected Route:**
+```bash
+GET /api/users/me
+Header: Authorization: Bearer eyJhbGc...
+→ { "id": "uuid", "email": "user@example.com", ... }
+```
+
+### Bug Fixes
+- Fixed SQLAlchemy relationship errors by importing all entity models in `main.py`
+- Added missing foreign key `email_account_id` to `DeltaToken` model
+- Fixed relationship between `DeltaToken` and `EmailAccount` with proper `back_populates`
+
+### Testing
+- Created `API_TESTING_CHECKLIST.md` with step-by-step testing guide
+- All endpoints tested via Swagger UI at `http://localhost:8000/docs`
+- Verified registration, login, authorization, profile management, and error handling
+
+### Notes / Next Steps
+- ✅ Authentication system complete and tested
+- ✅ User management endpoints working
+- 🔜 Build frontend login/register pages
+- 🔜 Implement OAuth2 flow for users to connect their Outlook accounts
+- 🔜 Create `email_accounts` module for multi-account support
+- 🔜 Add token refresh mechanism for longer sessions
+- 🔜 Implement email verification and password reset flows

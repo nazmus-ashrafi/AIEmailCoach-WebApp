@@ -1,1 +1,1 @@
-https://graph.microsoft.com/v1.0/me/mailFolders('Inbox')/messages/delta?$deltatoken=LztZwWjo5IivWBhyxw5rAMVzE8_CdKpDaMcyPUZmo_imdMgBNuWWvAmw8uiAdOuPKFCBQLAyDI_F1hy8O_dtETskDqEriLMGP_WMyWfcLIg.21Rn66-DnKftn4nDV1MPtL611eisQloK_97Jd44a_00
+https://graph.microsoft.com/v1.0/me/mailFolders('Inbox')/messages/delta?$deltatoken=LztZwWjo5IivWBhyxw5rAKXNy_w-S1JidjTAmYz8fOljFTT7ij6NM5-J3qpZfC1xYHS5bD8014H-c1KAdoeueAcKh2q0XNerqEeeDRcut50._UMxmg7bfHsEWmQqu2tnn-AWchsfov3lKPIlNJ075uE

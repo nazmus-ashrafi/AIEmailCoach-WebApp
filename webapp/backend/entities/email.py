@@ -9,6 +9,7 @@ These two belong together because they form a logical parent/child pair, are alw
 '''
 
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime, timezone
 from db.database import Base
 from sqlalchemy.orm import relationship
@@ -17,12 +18,26 @@ from sqlalchemy.orm import relationship
 class Email(Base):
     __tablename__ = "emails"
     
+    ## Integers id for high-volume internal data 
     id = Column(Integer, primary_key=True, index=True)
+    
+    # FK to EmailAccount --
+    email_account_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("email_accounts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    
     author = Column(String, nullable=False)
     to = Column(String, nullable=False)
     subject = Column(String, nullable=False)
     # email_thread = Column(Text, nullable=False) ## Replaced by "email_thread_text" and "email_thread_html"
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+    ## Relationship ------------- ------------- ------------- -------------
+
 
     ## Relationship to classifications (email.classifications ↔ classification.email)
     ## email.classifications  # list of related EmailClassification objects
@@ -41,6 +56,15 @@ class Email(Base):
         back_populates="email", 
         cascade="all, delete-orphan",
     )
+
+    # Backref to EmailAccount (email_account.emails)
+    email_account = relationship(
+        "EmailAccount",
+        back_populates="emails",
+    )
+
+    ## ------------- ------------- ------------- ------------- -------------
+
 
     ## OUTLOOK -- -- -- --
     ## New field for Outlook ingests - allowing to store real Outlook emails

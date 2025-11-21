@@ -169,7 +169,7 @@ output.jsonl
 notes.txt
 
 
-## App specific tokens and dbs
+## App specific tokens and dbs (not working)
 webapp/backend/core/refresh_token.txt
 webapp/backend/databse.db
 webapp/.tokens
