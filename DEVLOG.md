@@ -692,3 +692,406 @@ Header: Authorization: Bearer eyJhbGc...
 - 🔜 Create `email_accounts` module for multi-account support
 - 🔜 Add token refresh mechanism for longer sessions
 - 🔜 Implement email verification and password reset flows
+
+⸻
+
+## Commit 14 - OAuth2 Email Accounts & Account-Based Sync System
+
+<!-- Nov 22, 2025 -->
+
+git commit -m "feat[frontend/backend]: implement OAuth2 email accounts with encrypted tokens and account-based sync"
+
+### What I Built
+
+This was a major feature implementation that enables users to securely connect multiple email accounts via OAuth2 and sync emails on a per-account basis.
+
+#### 1. Email Accounts Module (`webapp/backend/email_accounts/`)
+
+**Core Infrastructure:**
+- **Token Encryption** - Fernet symmetric encryption for storing refresh tokens
+  - `encrypt_token()` / `decrypt_token()` functions
+  - Uses `TOKEN_ENCRYPTION_KEY` from environment
+  - Refresh tokens never stored in plaintext
+  
+- **OAuth2 State Management** - CSRF protection for OAuth flow
+  - `create_oauth_state()` - Generates secure state with user_id, timestamp, nonce
+  - `verify_oauth_state()` - Validates state and extracts user_id
+  - 10-minute expiration window
+  
+- **Microsoft OAuth2 Integration** - MSAL-based authentication
+  - `get_msal_app()` - Creates MSAL confidential client
+  - `create_authorization_url()` - Generates Microsoft login URL
+  - `exchange_code_for_tokens()` - Exchanges auth code for tokens
+  - `refresh_access_token()` - Refreshes expired access tokens
+
+**API Endpoints:**
+```python
+GET  /api/email_accounts/oauth/authorize    # Initiate OAuth2 flow
+GET  /api/email_accounts/oauth/callback     # Handle Microsoft redirect
+GET  /api/email_accounts/                   # List user's accounts
+DELETE /api/email_accounts/{account_id}     # Delete account
+```
+
+**Database Schema:**
+```sql
+CREATE TABLE email_accounts (
+    id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
+    provider VARCHAR,  -- 'outlook', 'google', 'imap'
+    email_address VARCHAR,
+    ms_refresh_token_encrypted VARCHAR,
+    google_refresh_token_encrypted VARCHAR,
+    access_token_expires_at TIMESTAMP,
+    created_at TIMESTAMP
+);
+```
+
+#### 2. Account-Based Email Sync (`webapp/backend/emails/`)
+
+**Updated Email Service:**
+- Modified `upsert_email()` to accept `email_account_id` parameter
+- Links emails to their source account
+- Maintains backward compatibility
+
+**New Sync Endpoint:**
+```python
+POST /api/emails/sync_outlook/{account_id}
+```
+
+**Features:**
+- Uses encrypted refresh tokens from database (not .env files)
+- Creates `DeltaToken` with proper `email_account_id` (fixes integrity error)
+- Links all synced emails to their source account
+- Performs incremental delta sync via Microsoft Graph API
+- Auto-refreshes access tokens when expired
+- Returns detailed sync statistics
+
+**Sync Flow:**
+1. Verify account ownership
+2. Decrypt refresh token from database
+3. Refresh access token using MSAL
+4. Load/create delta token for account + folder
+5. Perform delta sync (only fetch changes)
+6. Process changes (insert, update, delete)
+7. Link emails to `email_account_id`
+8. Save new delta token
+9. Return statistics
+
+#### 3. Frontend Implementation
+
+**New Pages:**
+- `app/accounts/page.tsx` - Email accounts dashboard
+  - Lists connected accounts
+  - "Connect Outlook Account" button
+  - Account cards with sync/delete actions
+  
+- `app/accounts/oauth-callback/page.tsx` - OAuth callback handler
+  - Shows success/error messages
+  - Auto-redirects to accounts page
+
+**New Components:**
+- `components/accounts/account-card.tsx`
+  - Displays account details (email, provider, connection date)
+  - Sync and Delete buttons
+  - Delete confirmation dialog
+  
+- `components/accounts/connect-account-button.tsx`
+  - Initiates OAuth2 flow
+  - Passes JWT token as query parameter
+
+**API Client:**
+- `utils/email-accounts-client.ts`
+  - `getAccounts()` - Fetch connected accounts
+  - `deleteAccount(id)` - Remove account
+  - `syncAccount(id)` - Trigger sync
+  - `getOAuthUrl()` - Get OAuth initiation URL
+
+**Type Definitions:**
+- `types/email-account.ts`
+  - `EmailAccount` interface
+  - `EmailAccountList` interface
+  - `OAuthCallbackParams` interface
+
+#### 4. Configuration Updates
+
+**Backend (`core/config.py`):**
+```python
+MICROSOFT_CLIENT_ID: str
+MICROSOFT_CLIENT_SECRET: str
+MICROSOFT_REDIRECT_URI: str
+MICROSOFT_TENANT_ID: str = "consumers"
+MICROSOFT_SCOPES: List[str] = ["User.Read", "Mail.ReadWrite", "Mail.Send"]
+TOKEN_ENCRYPTION_KEY: str
+FRONTEND_URL: str = "http://localhost:3000"
+```
+
+**Environment Variables Required:**
+```bash
+# Microsoft OAuth2
+APPLICATION_ID=<azure_app_client_id>
+CLIENT_SECRET=<azure_app_client_secret>
+REDIRECT_URI=http://localhost:8000/api/email_accounts/oauth/callback
+TENANT_ID=consumers
+
+# Token Encryption
+TOKEN_ENCRYPTION_KEY=<fernet_key>  # Generate with: Fernet.generate_key()
+
+# Frontend
+FRONTEND_URL=http://localhost:3000
+```
+
+#### 5. Routing Updates
+
+**Default Redirects Changed:**
+- Login → `/accounts` (was `/emails`)
+- Registration → `/accounts` (was `/emails`)
+
+**User Menu:**
+- Added "Email Accounts" link to dropdown
+
+### Technical Implementation Details
+
+#### OAuth2 Flow (Step-by-Step)
+
+1. **User clicks "Connect Outlook Account"**
+   - Frontend gets JWT token from localStorage
+   - Redirects to: `GET /api/email_accounts/oauth/authorize?token=<jwt>`
+
+2. **Backend creates authorization URL**
+   - Verifies JWT token
+   - Creates state parameter with user_id
+   - Generates Microsoft authorization URL
+   - Redirects browser to Microsoft login
+
+3. **User authorizes on Microsoft**
+   - Enters Microsoft credentials
+   - Grants permissions
+   - Microsoft redirects to callback with code
+
+4. **Backend handles callback**
+   - Verifies state parameter (CSRF protection)
+   - Exchanges authorization code for tokens
+   - Fetches user email from Microsoft Graph
+   - Encrypts refresh token with Fernet
+   - Stores in `email_accounts` table
+   - Redirects to frontend success page
+
+5. **Frontend shows success**
+   - Displays "Account connected successfully!"
+   - Redirects to accounts dashboard
+   - Account appears in list
+
+#### Delta Sync Implementation
+
+**Old System (Broken):**
+```python
+# ❌ Created DeltaToken without email_account_id
+token_row = DeltaToken(folder="inbox", delta_token=None)
+# Caused: IntegrityError: NOT NULL constraint failed
+```
+
+**New System (Fixed):**
+```python
+# ✅ Properly links DeltaToken to account
+token_row = DeltaToken(
+    email_account_id=account_uuid,
+    folder="inbox",
+    delta_token=None
+)
+```
+
+**Benefits:**
+- Each account has its own delta token
+- Supports multiple accounts per user
+- Incremental sync only fetches changes
+- No duplicate syncs across accounts
+
+### Bug Fixes
+
+1. **Import Errors**
+   - Fixed: `ModuleNotFoundError: No module named 'auth.dependencies'`
+   - Solution: Changed to `from auth.service import get_current_user`
+   - Updated all endpoints to use `CurrentUser` type annotation
+
+2. **Entity Import Error**
+   - Fixed: `ModuleNotFoundError: No module named 'entities.user'`
+   - Solution: Changed to `from entities.users import User`
+
+3. **OAuth2 Scope Error**
+   - Fixed: `ValueError: You cannot use any scope value that is reserved`
+   - Solution: Removed `offline_access` from `MICROSOFT_SCOPES`
+   - MSAL adds it automatically
+
+4. **401 Unauthorized on OAuth Authorize**
+   - Problem: Browser redirects can't include Authorization headers
+   - Solution: Pass JWT token as query parameter
+   - Updated endpoint to accept `token: str = Query(...)`
+
+5. **Frontend 404 Errors**
+   - Problem: Missing `/api` prefix in API calls
+   - Solution: Updated all endpoints in `email-accounts-client.ts`
+   - Changed `/email_accounts/` → `/api/email_accounts/`
+
+6. **Database Integrity Error**
+   - Problem: Legacy sync endpoint creating `DeltaToken` without `email_account_id`
+   - Solution: Disabled old endpoint, created new account-based endpoint
+
+7. **Timezone Comparison Error**
+   - Problem: `TypeError: can't compare offset-naive and offset-aware datetimes`
+   - Solution: Simplified to always refresh access token (Microsoft caches internally)
+
+### Dependencies Installed
+
+**Backend:**
+```bash
+uv pip install msal cryptography email-validator
+```
+
+**Packages:**
+- `msal` - Microsoft Authentication Library
+- `cryptography` - Fernet encryption for tokens
+- `email-validator` - Pydantic email validation
+
+### Database Migrations
+
+**New Relationships:**
+```sql
+-- Emails now link to accounts
+ALTER TABLE emails 
+ADD COLUMN email_account_id UUID 
+REFERENCES email_accounts(id) ON DELETE CASCADE;
+
+-- Delta tokens link to accounts
+ALTER TABLE delta_tokens
+ADD COLUMN email_account_id UUID NOT NULL
+REFERENCES email_accounts(id) ON DELETE CASCADE;
+```
+
+### Security Considerations
+
+**Token Storage:**
+- Refresh tokens encrypted at rest using Fernet
+- Access tokens short-lived (1 hour), not stored
+- Encryption key stored in environment variable
+
+**OAuth2 Security:**
+- State parameter prevents CSRF attacks
+- Redirect URI validation
+- Scopes limited to necessary permissions
+- Token exchange happens server-side only
+
+**Authentication:**
+- JWT tokens for API authentication
+- Protected routes require valid token
+- User can only access their own accounts
+
+### Testing Performed
+
+**OAuth2 Flow:**
+- ✅ Connect Outlook account
+- ✅ Microsoft authorization
+- ✅ Callback handling
+- ✅ Token encryption/storage
+- ✅ Account appears in dashboard
+
+**Sync Functionality:**
+- ✅ First sync (all emails)
+- ✅ Incremental sync (only changes)
+- ✅ Emails linked to account
+- ✅ Delta token saved correctly
+- ✅ Statistics returned
+
+**Error Handling:**
+- ✅ Invalid account_id
+- ✅ Account not found
+- ✅ Unauthorized access
+- ✅ Expired tokens auto-refresh
+- ✅ Microsoft API errors
+
+### Documentation Created
+
+1. **FRONTEND_AUTH_TUTORIAL.md** (3,000+ lines)
+   - Complete system architecture
+   - Authentication flow explained
+   - OAuth2 flow step-by-step
+   - Frontend/backend patterns
+   - Database schema
+   - Implementation guide for sync endpoint
+
+2. **SYNC_IMPLEMENTATION_SUMMARY.md**
+   - Implementation details
+   - Flow diagrams
+   - Testing instructions
+   - Troubleshooting guide
+
+3. **SETUP_OAUTH.md**
+   - Azure app registration steps
+   - Environment variable setup
+   - Encryption key generation
+   - Redirect URI configuration
+
+### Files Created/Modified
+
+**Backend:**
+- ✅ `email_accounts/__init__.py`
+- ✅ `email_accounts/schemas.py` - Pydantic models
+- ✅ `email_accounts/service.py` - OAuth2 & encryption logic
+- ✅ `email_accounts/router.py` - API endpoints
+- ✅ `emails/service.py` - Updated `upsert_email()`
+- ✅ `emails/router.py` - New sync endpoint
+- ✅ `core/config.py` - OAuth2 settings
+- ✅ `main.py` - Router registration
+
+**Frontend:**
+- ✅ `app/accounts/page.tsx`
+- ✅ `app/accounts/oauth-callback/page.tsx`
+- ✅ `components/accounts/account-card.tsx`
+- ✅ `components/accounts/connect-account-button.tsx`
+- ✅ `utils/email-accounts-client.ts`
+- ✅ `types/email-account.ts`
+- ✅ `app/auth/login/page.tsx` - Updated redirect
+- ✅ `app/auth/register/page.tsx` - Updated redirect
+- ✅ `components/auth/user-menu.tsx` - Added accounts link
+
+### Architecture Improvements
+
+**Before:**
+- Single-user email sync
+- Hardcoded credentials in .env
+- No account management
+- Delta tokens not linked to accounts
+- Emails not linked to accounts
+
+**After:**
+- Multi-account support per user
+- OAuth2 with encrypted token storage
+- Full account management UI
+- Delta tokens properly linked
+- Emails linked to source accounts
+- Secure, scalable, production-ready
+
+### Performance Optimizations
+
+- **Delta Sync:** Only fetches changes (not all emails every time)
+- **Token Caching:** Microsoft handles access token caching
+- **Atomic Commits:** Single database commit per sync
+- **Bulk Deletes:** Efficient deletion of multiple emails
+
+### Next Steps
+
+- [ ] Add Gmail OAuth2 support
+- [ ] Add IMAP account support
+- [ ] Implement email folders (Sent, Drafts, etc.)
+- [ ] Add sync status indicators in UI
+- [ ] Implement background sync (cron job)
+- [ ] Add email search across accounts
+- [ ] Implement email threading
+- [ ] Add sync conflict resolution
+- [ ] Create admin panel for monitoring
+- [ ] Add usage analytics
+
+### Notes
+
+This was a comprehensive feature that touched both frontend and backend extensively. The OAuth2 implementation follows Microsoft's best practices, and the token encryption ensures security. The account-based sync architecture is scalable and supports unlimited accounts per user.
+
+Key achievement: Transformed from a single-user, hardcoded credential system to a multi-account, OAuth2-based, production-ready email management platform.

@@ -40,6 +40,20 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY")
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM")
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    
+    # Microsoft OAuth2 Settings
+    MICROSOFT_CLIENT_ID: str = os.getenv("APPLICATION_ID")
+    MICROSOFT_CLIENT_SECRET: str = os.getenv("CLIENT_SECRET")
+    MICROSOFT_REDIRECT_URI: str = os.getenv("REDIRECT_URI", "http://localhost:8000/api/email_accounts/oauth/callback")
+    MICROSOFT_TENANT_ID: str = os.getenv("TENANT_ID", "consumers")
+    # Note: offline_access is automatically added by MSAL, don't include it explicitly
+    MICROSOFT_SCOPES: List[str] = ["User.Read", "Mail.ReadWrite", "Mail.Send"]
+    
+    # Token Encryption (for storing refresh tokens)
+    TOKEN_ENCRYPTION_KEY: str = os.getenv("TOKEN_ENCRYPTION_KEY")
+    
+    # Frontend URL (for OAuth redirects)
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
     def __init__(self, **values):
         super().__init__(**values)

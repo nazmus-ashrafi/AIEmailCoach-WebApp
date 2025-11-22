@@ -5,6 +5,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import SyncOutlookButton from "@/components/ui/SyncOutlookButton";
+import { ProtectedRoute } from "@/components/auth/protected-route";
+import { UserMenu } from "@/components/auth/user-menu";
 
 interface Email {
   id: number;
@@ -27,7 +29,7 @@ function cleanEmailPreview(text: string) {
     .trim();
 }
 
-export default function EmailsPage() {
+function EmailsPageContent() {
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,51 +88,70 @@ export default function EmailsPage() {
   if (error) return <p className="p-6 text-red-400">{error}</p>;
 
   return (
-    <div className="min-h-screen bg-black p-6">
-      <h1 className="text-3xl font-bold mb-6 text-white">Inbox</h1>
-
-      {/* Sync Button */}
-      <SyncOutlookButton onFinished={refreshAfterSync} />
-
-      {emails.length === 0 ? (
-        <p className="text-gray-400">No emails found.</p>
-      ) : (
-        <div className="grid gap-4">
-          {emails.map((email) => (
-            <Link href={`/emails/${email.id}`} key={email.id}>
-              <Card
-                key={email.id}
-                className="bg-stone-900 border-stone-800 p-4 hover:bg-stone-800 transition-colors duration-200"
-              >
-                <CardHeader className="flex flex-row justify-between items-start p-0">
-                  <CardTitle className="text-lg font-semibold text-white flex-1 pr-4">
-                    {email.subject}
-                  </CardTitle>
-                  <span className="text-xs text-stone-400">
-                    {new Date(email.created_at || "").toLocaleString()}
-                  </span>
-                  <Badge
-                    className={`${getBadgeColor(email.classification)} uppercase text-xs shrink-0`}
-                  >
-                    {email.classification || "TBD"}
-                  </Badge>
-                </CardHeader>
-                <CardContent className="p-0 mt-3">
-                  <p className="text-sm text-stone-400">
-                    <strong className="text-stone-300">From:</strong> {email.author}
-                  </p>
-                  <p className="text-sm text-stone-400">
-                    <strong className="text-stone-300">To:</strong> {email.to}
-                  </p>
-                  <p className="text-sm mt-2 line-clamp-3 text-stone-300">
-                    {cleanEmailPreview(email.email_thread_text)}
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+    <div className="min-h-screen bg-black">
+      {/* Navigation Bar */}
+      <nav className="bg-stone-900 border-b border-stone-800 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-white">AI Email Coach</h1>
+          <UserMenu />
         </div>
-      )}
+      </nav>
+
+      {/* Main Content */}
+      <div className="p-6">
+        <h2 className="text-3xl font-bold mb-6 text-white">Inbox</h2>
+
+        {/* Sync Button */}
+        <SyncOutlookButton onFinished={refreshAfterSync} />
+
+        {emails.length === 0 ? (
+          <p className="text-gray-400">No emails found.</p>
+        ) : (
+          <div className="grid gap-4">
+            {emails.map((email) => (
+              <Link href={`/emails/${email.id}`} key={email.id}>
+                <Card
+                  key={email.id}
+                  className="bg-stone-900 border-stone-800 p-4 hover:bg-stone-800 transition-colors duration-200"
+                >
+                  <CardHeader className="flex flex-row justify-between items-start p-0">
+                    <CardTitle className="text-lg font-semibold text-white flex-1 pr-4">
+                      {email.subject}
+                    </CardTitle>
+                    <span className="text-xs text-stone-400">
+                      {new Date(email.created_at || "").toLocaleString()}
+                    </span>
+                    <Badge
+                      className={`${getBadgeColor(email.classification)} uppercase text-xs shrink-0`}
+                    >
+                      {email.classification || "TBD"}
+                    </Badge>
+                  </CardHeader>
+                  <CardContent className="p-0 mt-3">
+                    <p className="text-sm text-stone-400">
+                      <strong className="text-stone-300">From:</strong> {email.author}
+                    </p>
+                    <p className="text-sm text-stone-400">
+                      <strong className="text-stone-300">To:</strong> {email.to}
+                    </p>
+                    <p className="text-sm mt-2 line-clamp-3 text-stone-300">
+                      {cleanEmailPreview(email.email_thread_text)}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+export default function EmailsPage() {
+  return (
+    <ProtectedRoute>
+      <EmailsPageContent />
+    </ProtectedRoute>
   );
 }

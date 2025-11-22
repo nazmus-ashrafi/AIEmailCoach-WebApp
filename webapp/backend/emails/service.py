@@ -17,11 +17,16 @@ logger = logging.getLogger(__name__)
 # - Insert if message doesn't exist
 # - Update if message already exists
 
-def upsert_email(db: Session, outlook_msg: dict) -> Email:
+def upsert_email(db: Session, outlook_msg: dict, email_account_id=None) -> Email:
     """
     Insert or update an Email record based on Microsoft Graph message JSON.
 
     Called during delta sync when a message is new or updated.
+    
+    Args:
+        db: Database session
+        outlook_msg: Message data from Microsoft Graph
+        email_account_id: Optional UUID of the email account this email belongs to
     """
 
     message_id = outlook_msg["id"]
@@ -32,6 +37,9 @@ def upsert_email(db: Session, outlook_msg: dict) -> Email:
     # Create new record if not found
     if email is None:
         email = Email(message_id=message_id)
+        # Link to email account if provided
+        if email_account_id:
+            email.email_account_id = email_account_id
         db.add(email)
 
     # -----------------------------

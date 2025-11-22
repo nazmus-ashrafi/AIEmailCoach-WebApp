@@ -4,6 +4,7 @@ from core.config import settings
 from emails import router as email
 from auth import router as auth
 from users import router as users
+from email_accounts import router as email_accounts
 from db.database import engine, create_tables
 from sqlalchemy import inspect, text
 
@@ -57,6 +58,7 @@ app.add_middleware(
 app.include_router(email.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")  # ← Added users router
+app.include_router(email_accounts.router, prefix="/api")  # ← Added email_accounts router
 
 
 if __name__ == "__main__":
