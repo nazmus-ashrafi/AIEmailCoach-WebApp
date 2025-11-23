@@ -15,6 +15,7 @@ interface AuthContextType extends AuthState {
     refreshUser: () => Promise<void>;
 }
 
+// We used "createContext" to create a global auth context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -111,13 +112,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         refreshUser,
     };
 
+    // .Provider = Providing the "Context" to any Component passed in this function ----> (PROVIDER)
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 /**
  * Hook to use auth context
+ * Custom Hook
+ * Convenience hook that accesses the AuthContext
  */
 export function useAuth() {
+    // useContext = Consumer used to access the "Context" ----> (CONSUMER)
     const context = useContext(AuthContext);
     if (context === undefined) {
         throw new Error('useAuth must be used within an AuthProvider');

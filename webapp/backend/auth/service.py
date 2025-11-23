@@ -77,6 +77,7 @@ def register_user(db: Session, register_user_request: schemas.RegisterUserReques
     Raises UserAlreadyExistsError if email is already registered
     """
     try:
+        # Step 1: Create User model with hashed password
         create_user_model = User(
             id=uuid4(),
             email=register_user_request.email,
@@ -84,7 +85,9 @@ def register_user(db: Session, register_user_request: schemas.RegisterUserReques
             last_name=register_user_request.last_name,
             password_hash=get_password_hash(register_user_request.password)
         )    
+        # Step 2: Add to database session
         db.add(create_user_model)
+        # Step 3: Commit transaction
         db.commit()
         logging.info(f"Successfully registered user: {register_user_request.email}")
     except IntegrityError:

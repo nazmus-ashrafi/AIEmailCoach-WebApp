@@ -33,17 +33,18 @@ from src.ai_email_coach.state import State
 from src.ai_email_coach.graph import graph  # LangGraph graph
 
 
+
 from fastapi.concurrency import run_in_threadpool
 from core.outlook import OutlookClient, transform_graph_message_to_email_record
 from dotenv import load_dotenv
 
 # ---
-from webapp.backend.core.outlook import OutlookClient
-from webapp.backend.emails.service import upsert_email, bulk_delete_by_ids
-from webapp.backend.entities.delta_token import DeltaToken
+from emails.service import upsert_email, bulk_delete_by_ids
+from entities.delta_token import DeltaToken
 
 # ---
 from dateutil import parser
+
 
 # Auth imports
 from auth.service import get_current_user

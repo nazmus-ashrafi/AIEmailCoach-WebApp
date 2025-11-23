@@ -12,7 +12,7 @@ from sqlalchemy import inspect, text
 from entities.users import User
 from entities.email_account import EmailAccount
 from entities.email import Email, EmailClassification
-# from entities.delta_token import DeltaToken
+from entities.delta_token import DeltaToken
 
 
 app = FastAPI(

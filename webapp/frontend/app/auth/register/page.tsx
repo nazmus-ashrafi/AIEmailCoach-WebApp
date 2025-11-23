@@ -25,6 +25,7 @@ export default function RegisterPage() {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
+    // Updates state on every keystroke
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({
             ...formData,
@@ -32,6 +33,7 @@ export default function RegisterPage() {
         });
     };
 
+    // Before sending data to the server, the frontend performs validation to catch obvious errors early.
     const validateForm = (): string | null => {
         if (formData.password.length < 8) {
             return 'Password must be at least 8 characters long';
@@ -55,6 +57,7 @@ export default function RegisterPage() {
         setIsLoading(true);
 
         try {
+            // Frontend sends an HTTP POST request to the backend.
             await register({
                 email: formData.email,
                 first_name: formData.first_name,
