@@ -1187,4 +1187,109 @@ All code examples are pulled from the actual implementation:
 - CAPTCHA for bot prevention
 
 
+⸻
+
+## Commit 16 - OAuth2 Email Account Connection Documentation
+
+<!-- Nov 24, 2025 -->
+
+git commit -m "docs: Add comprehensive OAuth2 Email Account Connection flow article"
+
+### What I Built
+
+docs: Add comprehensive OAuth2 Email Account Connection flow article
+
+### Overview
+Created comprehensive technical article documenting the OAuth2 Authorization Code Flow for securely connecting Microsoft Outlook email accounts with encrypted token storage.
+
+### What Was Built
+- **Article**: `Articles/2_OAUTH2_EMAIL_ACCOUNT_CONNECTION_ARTICLE.md`
+- **Diagrams**: 4 custom architecture diagrams
+  - High-level sequence diagram (OAuth2 flow overview)
+  - Frontend architecture diagram (OAuth trigger flow)
+  - Backend Part 1 diagram (Authorization URL building)
+  - Backend Part 2 diagram (Callback handling)
+
+### Technical Content Covered
+
+**Frontend Architecture:**
+- Browser redirection pattern (vs typical API calls)
+- JWT token passing via URL parameters
+- OAuth callback handling with success/error states
+- Auto-redirect UX after OAuth completion
+- TypeScript type safety for OAuth responses
+
+**Backend Architecture:**
+- OAuth2 Authorization Code Flow implementation
+- MSAL (Microsoft Authentication Library) integration
+- State parameter generation for CSRF protection
+- Token exchange (authorization code → access/refresh tokens)
+- Microsoft Graph API integration for user profile
+
+**Security Features:**
+- **CSRF Protection**: State parameter with user_id + timestamp + nonce
+- **Encryption at Rest**: Fernet symmetric encryption for refresh tokens
+- **Token Rotation**: Automatic refresh token updates from Microsoft
+- **Scope Minimization**: Only requesting necessary permissions
+- **State Expiration**: 10-minute timeout for OAuth state
+
+**Database Design:**
+- `EmailAccount` entity with encrypted token storage
+- Provider-specific token fields (`ms_refresh_token_encrypted`, `google_refresh_token_encrypted`)
+- Access token expiration tracking
+- Cascade deletion relationships
+
+**Error Handling:**
+- Graceful redirect on all failure paths
+- Specific error codes (auth_failed, invalid_state, callback_failed)
+- Frontend error display with auto-redirect
+- Duplicate account detection
+
+**Key Implementation Details:**
+- Refresh token encryption using Fernet (AES-128-CBC)
+- Microsoft Graph `/me` endpoint for email address retrieval
+- Redirect URI validation
+- Environment variable configuration
+- Token decryption service for sync operations
+
+### Design Strengths Documented
+1. ✅ State parameter validation (CSRF protection)
+2. ✅ Error handling with RedirectResponse throughout
+3. ✅ HTTPS requirement (OAuth 2.0 spec compliance)
+4. ✅ Duplicate account checking before save
+
+### Potential Issues Identified
+1. ⚠️ Synchronous HTTP call blocking event loop
+2. ⚠️ Access token not stored (requires immediate refresh)
+3. ⚠️ State token lifetime not explicitly enforced
+4. ⚠️ No retry logic for transient Microsoft Graph failures
+
+### Article Structure
+1. **Introduction** - OAuth2 overview and security importance
+2. **System Overview** - Three-party interaction (User, Backend, Microsoft)
+3. **Part 1: Initiating the Flow** - Frontend trigger and authorization URL
+4. **Part 2: Handling the Callback** - State verification and token exchange
+5. **Part 3: Secure Storage** - Fernet encryption implementation
+6. **Part 4: Frontend Feedback** - Success/error handling
+7. **Security Checklist** - Comprehensive security review
+8. **Common Pitfalls** - Real-world issues and solutions
+9. **Design Strengths & Issues** - Critical analysis
+10. **Conclusion** - Foundation for Delta Sync
+
+### Related Code Files
+- `webapp/backend/email_accounts/router.py` (OAuth endpoints)
+- `webapp/backend/email_accounts/service.py` (Token encryption, MSAL)
+- `webapp/backend/entities/email_account.py` (Database model)
+- `webapp/frontend/components/accounts/connect-account-button.tsx` (OAuth trigger)
+- `webapp/frontend/app/accounts/oauth-callback/page.tsx` (Callback handler)
+
+### Future Improvements Noted
+- Implement async httpx for non-blocking Graph API calls
+- Store access token with expiration for immediate use (maybe, but not needed)
+- Add explicit state timeout enforcement
+- Implement retry logic with exponential backoff
+- Add OAuth flow monitoring/logging
+- Support for Google OAuth (similar pattern)
+
+
 

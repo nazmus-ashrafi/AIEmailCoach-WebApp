@@ -7,6 +7,7 @@
  */
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import type { EmailAccount } from '@/types/email-account';
@@ -19,6 +20,7 @@ interface AccountCardProps {
 }
 
 export function AccountCard({ account, onDelete, onSync }: AccountCardProps) {
+    const router = useRouter();
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -46,6 +48,10 @@ export function AccountCard({ account, onDelete, onSync }: AccountCardProps) {
         } finally {
             setIsSyncing(false);
         }
+    };
+
+    const handleViewInbox = () => {
+        router.push(`/emails?account_id=${account.id}`);
     };
 
     const getProviderIcon = () => {
@@ -78,7 +84,10 @@ export function AccountCard({ account, onDelete, onSync }: AccountCardProps) {
         <Card className="bg-stone-900 border-stone-800">
             <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                    <div
+                        className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={handleViewInbox}
+                    >
                         {getProviderIcon()}
                         <div>
                             <CardTitle className="text-lg text-white">{account.email_address}</CardTitle>
@@ -87,6 +96,14 @@ export function AccountCard({ account, onDelete, onSync }: AccountCardProps) {
                     </div>
 
                     <div className="flex items-center gap-2">
+                        <Button
+                            onClick={handleViewInbox}
+                            size="sm"
+                            className="bg-blue-700 hover:bg-blue-600 text-white"
+                        >
+                            View Inbox
+                        </Button>
+
                         <Button
                             onClick={handleSync}
                             disabled={isSyncing}

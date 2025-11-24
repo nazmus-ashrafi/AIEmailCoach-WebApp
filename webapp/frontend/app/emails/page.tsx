@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -30,6 +31,9 @@ function cleanEmailPreview(text: string) {
 }
 
 function EmailsPageContent() {
+  const searchParams = useSearchParams();
+  const accountId = searchParams.get('account_id');
+
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +42,12 @@ function EmailsPageContent() {
     setLoading(true);
     setError(null);
 
-    fetch("http://localhost:8000/api/emails/")
+    // Build URL with optional account_id parameter
+    const url = accountId
+      ? `http://localhost:8000/api/emails/?account_id=${accountId}`
+      : "http://localhost:8000/api/emails/";
+
+    fetch(url)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to refresh after sync");
         return res.json();
@@ -57,7 +66,12 @@ function EmailsPageContent() {
   useEffect(() => {
     async function fetchEmails() {
       try {
-        const res = await fetch("http://localhost:8000/api/emails/");
+        // Build URL with optional account_id parameter
+        const url = accountId
+          ? `http://localhost:8000/api/emails/?account_id=${accountId}`
+          : "http://localhost:8000/api/emails/";
+
+        const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
         const data = await res.json();
         setEmails(Array.isArray(data) ? data : []);
@@ -69,7 +83,7 @@ function EmailsPageContent() {
       }
     }
     fetchEmails();
-  }, []);
+  }, [accountId]); // Re-fetch when accountId changes
 
   const getBadgeColor = (classification?: string) => {
     switch (classification) {
@@ -99,7 +113,19 @@ function EmailsPageContent() {
 
       {/* Main Content */}
       <div className="p-6">
-        <h2 className="text-3xl font-bold mb-6 text-white">Inbox</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-3xl font-bold text-white">
+            {accountId ? "Account Inbox" : "All Emails"}
+          </h2>
+          {accountId && (
+            <Link
+              href="/emails"
+              className="text-sm text-blue-400 hover:text-blue-300"
+            >
+              ← View All Emails
+            </Link>
+          )}
+        </div>
 
         {/* Sync Button */}
         <SyncOutlookButton onFinished={refreshAfterSync} />

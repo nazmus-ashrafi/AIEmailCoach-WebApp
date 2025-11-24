@@ -56,6 +56,7 @@ async def oauth_authorize(
         auth_url = service.create_authorization_url(user_id)
         
         logger.info(f"Successfully created authorization URL, redirecting...")
+        # Redirecting the user to the provider’s authentication URL is required so the user can log in, grant permissions, etc.
         return RedirectResponse(url=auth_url)
     except Exception as e:
         logger.exception(f"Failed to create authorization URL: {e}")

@@ -21,7 +21,7 @@ export function UserMenu() {
 
     return (
         <div className="relative group">
-            <button className="flex items-center gap-2 px-4 py-2 bg-stone-800 hover:bg-stone-700 rounded transition-colors">
+            <button className="flex items-center gap-2 px-4 py-2 bg-stone-800 hover:bg-stone-700 rounded transition-colors rounded-lg">
                 <div className="w-8 h-8 rounded-full bg-stone-600 flex items-center justify-center text-white font-medium">
                     {user.first_name[0]}{user.last_name[0]}
                 </div>

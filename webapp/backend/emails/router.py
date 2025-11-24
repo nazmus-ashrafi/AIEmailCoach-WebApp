@@ -58,21 +58,35 @@ router = APIRouter(prefix="/emails", tags=["Emails"])
 # 2. Returns all emails from the database.
 # 3. Subsequent calls just query the database.
 @router.get("/", response_model=list[EmailResponse])
-def list_emails(db: Session = Depends(get_db)):
+def list_emails(
+    account_id: str = Query(None, description="Optional email account ID to filter by"),
+    db: Session = Depends(get_db)
+):
     """
-    - (X) Lazily create the emails table (Removed (see 1), tables now create at app startup in main (see ensure_tables_exist()))
-    - Checks if table exists and populate it with mock emails
-    if it is empty.
+    List emails, optionally filtered by account.
+    
+    Args:
+        account_id: Optional UUID of email account to filter by
+        db: Database session
+        
+    Returns:
+        List of emails (all emails if no account_id, or filtered by account)
     """
-    # inspector = inspect(engine)
-
-    # # 1️. Create tables if they don't exist
-    # if "emails" not in inspector.get_table_names():
-    #     Base.metadata.create_all(bind=engine)
-
-    # 2️. Check if table already has data
-    emails =  db.query(Email).order_by(Email.created_at.desc()).all()
-    ## Order by created_at in descending order (newest first)
+    from uuid import UUID
+    
+    # Start with base query
+    query = db.query(Email)
+    
+    # Apply account filter if provided
+    if account_id:
+        try:
+            account_uuid = UUID(account_id)
+            query = query.filter(Email.email_account_id == account_uuid)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid account_id format")
+    
+    # Order by created_at descending (newest first)
+    emails = query.order_by(Email.created_at.desc()).all()
 
     ## Fetch from Mock Emails -- DEPRECATED
     # if not emails:

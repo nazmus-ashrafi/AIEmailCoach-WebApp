@@ -233,6 +233,7 @@ def create_email_account(
     )
     
     db.add(account)
+    ## Save a Microsoft account to the database
     db.commit()
     db.refresh(account)
     
