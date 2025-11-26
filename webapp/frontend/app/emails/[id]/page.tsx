@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ClassifyIsland from "./ClassifyIsland";
+import { EmailThreadList } from "@/components/emails/EmailThreadList";
 
 interface Email {
   id: number;
@@ -9,6 +10,7 @@ interface Email {
   email_thread_text: string;
   email_thread_html: string;
   classification?: "ignore" | "notify" | "respond";
+  created_at?: string;
 }
 
 export default async function EmailDetailPage({
@@ -18,12 +20,12 @@ export default async function EmailDetailPage({
 }) {
   const { id } = await params;
 
-  // Fetch the email from backend
-  const res = await fetch(`http://localhost:8000/api/emails/${id}`, {
-    cache: "no-store", // always fetch latest
+  // Fetch the specific email
+  const emailRes = await fetch(`http://localhost:8000/api/emails/${id}`, {
+    cache: "no-store",
   });
 
-  if (!res.ok) {
+  if (!emailRes.ok) {
     return (
       <div className="min-h-screen bg-black p-6 text-stone-400">
         <Link href="/emails" className="text-stone-400 hover:text-stone-200">
@@ -34,7 +36,17 @@ export default async function EmailDetailPage({
     );
   }
 
-  const email: Email = await res.json();
+  const email: Email = await emailRes.json();
+
+  // Fetch all emails for the thread list
+  const allEmailsRes = await fetch(`http://localhost:8000/api/emails/`, {
+    cache: "no-store",
+  });
+
+  let allEmails: Email[] = [];
+  if (allEmailsRes.ok) {
+    allEmails = await allEmailsRes.json();
+  }
 
   return (
     <div className="min-h-screen bg-black p-6">
@@ -45,32 +57,43 @@ export default async function EmailDetailPage({
         ← Back to Inbox
       </Link>
 
-      <div className="bg-stone-900 border-stone-800 p-6 rounded-2xl">
-        <h1 className="text-2xl text-white mb-2">{email.subject}</h1>
-        <p className="text-sm text-stone-400 mb-1">
-          <strong className="text-stone-300">From:</strong> {email.author}
-        </p>
-        <p className="text-sm text-stone-400 mb-4">
-          <strong className="text-stone-300">To:</strong> {email.to}
-        </p>
+      {/* Two-column layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left column: Email thread list */}
+        <div className="lg:col-span-1">
+          <EmailThreadList emails={allEmails} currentEmailId={email.id} />
+        </div>
 
-        {/* --- Render Email Body --- */}
-        {email.email_thread_html ? (
-          <div
-            className="text-stone-200 mb-6"
-            dangerouslySetInnerHTML={{ __html: email.email_thread_html }}
-          />
-        ) : (
-          <div className="text-stone-200 whitespace-pre-line mb-6">
-            {email.email_thread_text}
+        {/* Right column: Email detail */}
+        <div className="lg:col-span-2">
+          <div className="bg-stone-900 border border-stone-800 p-6 rounded-2xl">
+            <h1 className="text-2xl text-white mb-2">{email.subject}</h1>
+            <p className="text-sm text-stone-400 mb-1">
+              <strong className="text-stone-300">From:</strong> {email.author}
+            </p>
+            <p className="text-sm text-stone-400 mb-4">
+              <strong className="text-stone-300">To:</strong> {email.to}
+            </p>
+
+            {/* --- Render Email Body --- */}
+            {email.email_thread_html ? (
+              <div
+                className="text-stone-200 mb-6"
+                dangerouslySetInnerHTML={{ __html: email.email_thread_html }}
+              />
+            ) : (
+              <div className="text-stone-200 whitespace-pre-line mb-6">
+                {email.email_thread_text}
+              </div>
+            )}
+
+            {/* --- Interactive "island" for classification / draft --- */}
+            <ClassifyIsland
+              emailId={email.id}
+              initialClassification={email.classification}
+            />
           </div>
-        )}
-
-        {/* --- Interactive “island” for classification / draft --- */}
-        <ClassifyIsland
-          emailId={email.id}
-          initialClassification={email.classification}
-        />
+        </div>
       </div>
     </div>
   );

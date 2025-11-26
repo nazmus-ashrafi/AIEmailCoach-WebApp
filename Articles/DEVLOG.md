@@ -1293,3 +1293,55 @@ Created comprehensive technical article documenting the OAuth2 Authorization Cod
 
 
 
+⸻
+
+## Commit 17 - Scrollable Email Thread List Component
+
+<!-- Nov 26, 2025 -->
+
+git commit -m "feat: add scrollable email thread list to email detail page"
+
+### What I Built
+Implemented a shadcn-based scrollable email thread list component for the email detail page to improve navigation and user experience.
+
+### Technical Details
+
+**Component Created:**
+- `EmailThreadList.tsx` - Scrollable list component using shadcn's `ScrollArea`
+  - Fixed 600px height scrollable container prevents full-page scrolling
+  - Current email highlighted with blue ring indicator
+  - Compact email preview cards showing subject, sender, date, and classification
+  - Smooth hover effects for better interactivity
+  - Mobile-responsive design that stacks vertically on smaller screens
+
+**Layout Implementation:**
+- Implemented responsive two-column grid layout in email detail page
+  - Left column (1/3 width on large screens): Scrollable email thread list
+  - Right column (2/3 width on large screens): Full email content
+  - Stacks vertically on mobile devices
+
+**Features:**
+- Users can browse and switch between emails without leaving the detail page
+- Quick navigation between emails by clicking on them in the list
+- Visual indicator shows which email is currently selected
+- Clean, modern dark theme matching existing design system
+
+### Files Modified
+- `webapp/frontend/components/emails/EmailThreadList.tsx` (new)
+- `webapp/frontend/app/emails/[id]/page.tsx` (modified)
+- `webapp/frontend/components/ui/scroll-area.tsx` (new - shadcn component)
+
+### Dependencies Added
+```bash
+npx shadcn@latest add scroll-area
+```
+
+### Why This Matters
+Users can now browse and switch between emails without leaving the detail page, making it easier to review multiple emails in a thread or quickly navigate their inbox. The scrollable container keeps the interface clean and prevents excessive scrolling.
+
+### Next Steps
+- Need to make this a universal reusable component to display both emails and email threads in any page
+- Consider adding keyboard navigation (arrow keys to move between emails)
+- Potential grouping of emails by thread/conversation
+- Add search/filter functionality within the scrollable list
+
