@@ -44,6 +44,7 @@ from entities.delta_token import DeltaToken
 
 # ---
 from dateutil import parser
+import httpx
 
 
 # Auth imports
@@ -54,12 +55,12 @@ router = APIRouter(prefix="/emails", tags=["Emails"])
 
 # 1. When the first time /emails/ is hit:
 # 	•	SQLAlchemy checks if the table exists → creates it if not.
-# 	•	Checks if the table has data → populates it from MOCK_EMAILS if empty.
+# 	•	Checks if the table has data → populates it from MOCK_EMAILS if empty.  -- DEPRECATED
 # 2. Returns all emails from the database.
 # 3. Subsequent calls just query the database.
 @router.get("/", response_model=list[EmailResponse])
 def list_emails(
-    account_id: str = Query(None, description="Optional email account ID to filter by"),
+    account_id: str = Query(None, description="Optional email account ID to filter by"), ## App Registered user's account ID.
     db: Session = Depends(get_db)
 ):
     """
@@ -124,6 +125,39 @@ def get_email(email_id: int, db: Session = Depends(get_db)):
     if not email:
         raise HTTPException(status_code=404, detail="Email not found")
     return email
+
+
+@router.get("/{email_id}/thread", response_model=list[EmailResponse])
+def get_email_thread(email_id: int, db: Session = Depends(get_db)):
+    """
+    Get all emails in the same conversation thread.
+    
+    Returns emails ordered by received_at ascending (oldest first) for chronological reading.
+    If the email has no conversation_id, returns only that single email.
+    
+    Args:
+        email_id: ID of the email to get the thread for
+        db: Database session
+        
+    Returns:
+        List of emails in the conversation thread
+    """
+    # 1. Get the email from DB
+    email = db.query(Email).filter(Email.id == email_id).first()
+    if not email:
+        raise HTTPException(status_code=404, detail="Email not found")
+    
+    # 2. If no conversation_id, return just this email
+    if not email.conversation_id:
+        return [email]
+    
+    # 3. Fetch all messages with same conversation_id
+    thread_messages = db.query(Email)\
+        .filter(Email.conversation_id == email.conversation_id)\
+        .order_by(Email.received_at.asc())\
+        .all()
+    
+    return thread_messages
 
 
 # -----------------------------------------------------------------------------------------------------------------------
@@ -566,6 +600,8 @@ async def generate_draft(
 # NEW ACCOUNT-BASED SYNC ENDPOINT
 # -----------------------------------------------------------------------------------------------------------------------
 
+## This is where the first email upsert takes place
+
 @router.post("/sync_outlook/{account_id}")
 async def sync_outlook(
     account_id: str,
@@ -625,107 +661,117 @@ async def sync_outlook(
             account.ms_refresh_token_encrypted = encrypt_token(new_refresh_token)
     db.commit()
     
-    # 4. Load or create delta token for this account
-    token_row = db.query(DeltaToken).filter(
-        DeltaToken.email_account_id == account_uuid,
-        DeltaToken.folder == "inbox"
-    ).first()
+    # 4. Sync both Inbox and SentItems folders for complete conversation threads
     
-    if token_row is None:
-        token_row = DeltaToken(
-            email_account_id=account_uuid,  # ✅ Properly linked to account
-            folder="inbox",
-            delta_token=None
-        )
-        db.add(token_row)
-        db.commit()
-        db.refresh(token_row)
+    folders_to_sync = [
+        ("inbox", "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/delta"),
+        ("sentitems", "https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages/delta")
+    ]
     
-    # 5. Perform delta sync using Microsoft Graph API directly
-    # Since OutlookClient uses file-based tokens, we'll use httpx directly
-    import httpx
+    total_inserted = 0
+    total_updated = 0
+    total_deleted = 0
     
-    # Build delta URL
-    if token_row.delta_token:
-        # Use existing delta token (incremental sync)
-        delta_url = token_row.delta_token
-    else:
-        # First sync - get all messages
-        delta_url = "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/delta"
-    
-    all_changes = []
-    new_delta_link = None
-    
-    try:
-        with httpx.Client(timeout=60.0) as client:
-            next_url = delta_url
+    for folder_name, base_delta_url in folders_to_sync:
+        # Load or create delta token for this folder
+        token_row = db.query(DeltaToken).filter(
+            DeltaToken.email_account_id == account_uuid,
+            DeltaToken.folder == folder_name
+        ).first()
+        
+        if token_row is None:
+            token_row = DeltaToken(
+                email_account_id=account_uuid,
+                folder=folder_name,
+                delta_token=None
+            )
+            db.add(token_row)
+            db.commit()
+            db.refresh(token_row)
+        
+        # Build delta URL (use stored token if available)
+        delta_url = token_row.delta_token if token_row.delta_token else base_delta_url
+        
+        all_changes = []
+        new_delta_link = None
+        
+        # Perform delta sync for this folder
+        try:
+            with httpx.Client(timeout=60.0) as client:
+                next_url = delta_url
+                
+                while next_url:
+                    headers = {
+                        "Authorization": f"Bearer {access_token}",
+                        "Accept": "application/json"
+                    }
+                    
+                    resp = client.get(next_url, headers=headers)
+                    
+                    if resp.status_code != 200:
+                        raise HTTPException(500, f"Microsoft Graph API error for {folder_name}: {resp.text}")
+                    
+                    data = resp.json()
+                    all_changes.extend(data.get("value", []))
+                    
+                    # Check for next page or delta link
+                    next_url = data.get("@odata.nextLink")
+                    
+                    if data.get("@odata.deltaLink"):
+                        new_delta_link = data["@odata.deltaLink"]
+                        break
+        except Exception as e:
+            raise HTTPException(500, f"Delta sync failed for {folder_name}: {str(e)}")
+        
+        # Process changes for this folder
+        inserted = 0
+        updated = 0
+        deleted_ids = []
+        
+        for item in all_changes:
+            # Handle deleted messages
+            if "@removed" in item:
+                deleted_ids.append(item["id"])
+                continue
             
-            while next_url:
-                headers = {
-                    "Authorization": f"Bearer {access_token}",
-                    "Accept": "application/json"
-                }
-                
-                resp = client.get(next_url, headers=headers)
-                
-                if resp.status_code != 200:
-                    raise HTTPException(500, f"Microsoft Graph API error: {resp.text}")
-                
-                data = resp.json()
-                all_changes.extend(data.get("value", []))
-                
-                # Check for next page or delta link
-                next_url = data.get("@odata.nextLink")
-                
-                if data.get("@odata.deltaLink"):
-                    new_delta_link = data["@odata.deltaLink"]
-                    break
-    except Exception as e:
-        raise HTTPException(500, f"Delta sync failed: {str(e)}")
-    
-    # 6. Process changes
-    inserted = 0
-    updated = 0
-    deleted_ids = []
-    
-    for item in all_changes:
-        # Handle deleted messages
-        if "@removed" in item:
-            deleted_ids.append(item["id"])
-            continue
+            # Parse received datetime
+            received_str = item.get("receivedDateTime")
+            received_dt = parser.isoparse(received_str) if received_str else None
+            item["received_at"] = received_dt
+            
+            # Check if email exists
+            existing = db.query(Email).filter(Email.message_id == item["id"]).first()
+            if existing:
+                updated += 1
+            else:
+                inserted += 1
+            
+            # Upsert with email_account_id
+            upsert_email(db, item, email_account_id=account_uuid)
         
-        # Parse received datetime
-        received_str = item.get("receivedDateTime")
-        received_dt = parser.isoparse(received_str) if received_str else None
-        item["received_at"] = received_dt
+        # Bulk delete removed emails
+        deleted = bulk_delete_by_ids(db, deleted_ids) if deleted_ids else 0
         
-        # Check if email exists
-        existing = db.query(Email).filter(Email.message_id == item["id"]).first()
-        if existing:
-            updated += 1
-        else:
-            inserted += 1
+        # Update delta token for this folder
+        if new_delta_link:
+            token_row.delta_token = new_delta_link
         
-        # Upsert with email_account_id
-        upsert_email(db, item, email_account_id=account_uuid)
+        # Accumulate statistics
+        total_inserted += inserted
+        total_updated += updated
+        total_deleted += deleted
     
-    # 7. Bulk delete removed emails
-    deleted = bulk_delete_by_ids(db, deleted_ids) if deleted_ids else 0
-    
-    # 8. Update delta token
-    if new_delta_link:
-        token_row.delta_token = new_delta_link
-    
-    # 9. Commit all changes atomically
+    # Commit all changes atomically
     db.commit()
     
-    # 10. Return statistics
+    # Return statistics
     return {
         "status": "ok",
         "account_id": str(account_uuid),
         "email_address": account.email_address,
-        "inserted": inserted,
-        "updated": updated,
-        "deleted": deleted,
-        "new_delta_token_saved": bool(new_delta_link),
+        "inserted": total_inserted,
+        "updated": total_updated,
+        "deleted": total_deleted,
+        "folders_synced": ["inbox", "sentitems"],
+        "new_delta_token_saved": True,
     }

@@ -29,6 +29,7 @@ class Email(EmailBase):
     id: int
     created_at: datetime
     message_id: Optional[str] = None
+    conversation_id: Optional[str] = None
 
     class Config:
         orm_mode = True # allows conversion from SQLAlchemy object
@@ -46,10 +47,12 @@ class EmailResponse(BaseModel):
     subject: str
     # email_thread: str
     created_at: datetime
+    received_at: Optional[datetime] = None
 
     email_thread_text: Optional[str]
     email_thread_html: Optional[str]
     message_id: Optional[str]
+    conversation_id: Optional[str]
 
     class Config:
         orm_mode = True

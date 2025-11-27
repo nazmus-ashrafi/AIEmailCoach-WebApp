@@ -70,6 +70,8 @@ class Email(Base):
     ## New field for Outlook ingests - allowing to store real Outlook emails
     ## Outlook messages have a unique stable ID (message_id)
     message_id = Column(String, unique=True, nullable=True, index=True)
+    conversation_id = Column(String, nullable=True, index=True)  # Groups emails in same thread
+    received_at = Column(DateTime, nullable=True, index=True)  # When email was received in Outlook
     email_thread_text = Column(Text, nullable=True)   # Clean text for LLM + preview
     email_thread_html = Column(Text, nullable=True)   # Raw HTML for full viewer
 

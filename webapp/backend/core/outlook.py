@@ -433,6 +433,8 @@ def html_to_text(html: str) -> str:
     return soup.get_text(separator="\n").strip()
 
 
+## This function is not being actively used (depricate)
+## Replaced by Delta sync
 def transform_graph_message_to_email_record(msg: Dict[str, Any]) -> Dict[str, Any]:
     """
     Convert a Microsoft Graph email payload into a normalized structure
@@ -453,6 +455,9 @@ def transform_graph_message_to_email_record(msg: Dict[str, Any]) -> Dict[str, An
     return {
         "message_id": msg.get("id"),
         "subject": msg.get("subject") or "(No subject)",
+
+        ## conversationId can be used to fetch all related messages
+        "conversation_id": msg.get("conversationId"), 
 
         # Store both text + HTML versions
         "body_html": full_html, ## Raw HTML for full viewer
@@ -482,7 +487,7 @@ def transform_graph_message_to_email_record(msg: Dict[str, Any]) -> Dict[str, An
 # ---------------------------
 if __name__ == "__main__":
     """
-    Typical manual flow for a solo dev:
+    Typical manual flow:
     1) Run this file once to generate initial refresh token:
          python webapp/backend/core/outlook.py
        Follow the prompts, that stores the refresh token in .tokens/ms_refresh_token.txt

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import ClassifyIsland from "./ClassifyIsland";
-import { EmailThreadList } from "@/components/emails/EmailThreadList";
+import { EmailThreadList } from "@/components/emails/EmailThreadList_v2";
 
 interface Email {
   id: number;
@@ -38,15 +38,8 @@ export default async function EmailDetailPage({
 
   const email: Email = await emailRes.json();
 
-  // Fetch all emails for the thread list
-  const allEmailsRes = await fetch(`http://localhost:8000/api/emails/`, {
-    cache: "no-store",
-  });
-
-  let allEmails: Email[] = [];
-  if (allEmailsRes.ok) {
-    allEmails = await allEmailsRes.json();
-  }
+  // Note: EmailThreadList v2 now fetches its own thread data via API
+  // No need to fetch all emails here anymore
 
   return (
     <div className="min-h-screen bg-black p-6">
@@ -61,7 +54,7 @@ export default async function EmailDetailPage({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column: Email thread list */}
         <div className="lg:col-span-1">
-          <EmailThreadList emails={allEmails} currentEmailId={email.id} />
+          <EmailThreadList emailId={email.id} />
         </div>
 
         {/* Right column: Email detail */}
@@ -77,10 +70,14 @@ export default async function EmailDetailPage({
 
             {/* --- Render Email Body --- */}
             {email.email_thread_html ? (
-              <div
-                className="text-stone-200 mb-6"
-                dangerouslySetInnerHTML={{ __html: email.email_thread_html }}
-              />
+              // <div
+              //   className="text-stone-200 mb-6"
+              //   dangerouslySetInnerHTML={{ __html: email.email_thread_html }}
+              // />
+
+              <EmailThreadList emailId={email.id} />
+
+
             ) : (
               <div className="text-stone-200 whitespace-pre-line mb-6">
                 {email.email_thread_text}

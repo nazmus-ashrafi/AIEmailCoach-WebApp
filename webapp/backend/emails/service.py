@@ -53,6 +53,9 @@ def upsert_email(db: Session, outlook_msg: dict, email_account_id=None) -> Email
     email.author = sender or "unknown"
     email.to = to or ""
     email.subject = outlook_msg.get("subject", "")
+    
+    # Conversation ID for threading
+    email.conversation_id = outlook_msg.get("conversationId")
 
     # Ensure received_at is a datetime
     received_dt = outlook_msg.get("received_at")
