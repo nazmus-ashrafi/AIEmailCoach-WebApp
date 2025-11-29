@@ -67,3 +67,18 @@ class EmailClassificationResponse(BaseModel):
     classification: Literal["ignore", "respond", "notify"]
     reasoning: str
     ai_draft: str | None = None  # optional if we want to include draft later
+
+
+# ----------------- Conversation Group Response -----------------
+class ConversationGroupResponse(BaseModel):
+    conversation_id: Optional[str]  # None for emails without conversation_id
+    subject: str
+    message_count: int
+    most_recent_email_id: int
+    most_recent_date: datetime
+    participants: List[str]  # Unique email addresses involved
+    preview_text: Optional[str]
+    classification: Optional[Literal["ignore", "respond", "notify"]] = None
+    
+    class Config:
+        orm_mode = True

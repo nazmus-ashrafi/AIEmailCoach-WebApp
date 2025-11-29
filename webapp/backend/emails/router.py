@@ -11,7 +11,7 @@ from sqlalchemy import inspect
 from db.database import get_db, engine, Base
 
 from entities.email import Email, EmailClassification # SQLAlchemy model
-from emails.schemas import EmailResponse, EmailClassificationResponse  # Pydantic Schema
+from emails.schemas import EmailResponse, EmailClassificationResponse, ConversationGroupResponse  # Pydantic Schema
 
 from email_mock import MOCK_EMAILS
 import os
@@ -104,6 +104,102 @@ def list_emails(
     #     emails = db.query(Email).all()
 
     return emails
+
+
+# -----------------------------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------------------------------------
+
+
+@router.get("/conversations", response_model=list[ConversationGroupResponse])
+def list_conversations(
+    account_id: str = Query(None, description="Optional email account ID to filter by"),
+    db: Session = Depends(get_db)
+):
+    """
+    List emails grouped by conversation_id.
+    
+    Groups emails by their conversation_id and returns aggregated metadata for each conversation.
+    Emails without a conversation_id are treated as individual conversations.
+    
+    Args:
+        account_id: Optional UUID of email account to filter by
+        db: Database session
+        
+    Returns:
+        List of conversation groups with metadata (subject, participants, message count, etc.)
+    """
+    from uuid import UUID
+    from collections import defaultdict
+    
+    # Start with base query
+    query = db.query(Email)
+    
+    # Apply account filter if provided
+    if account_id:
+        try:
+            account_uuid = UUID(account_id)
+            query = query.filter(Email.email_account_id == account_uuid)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid account_id format")
+    
+    # Get all emails
+    emails = query.all()
+    
+    # Group emails by conversation_id
+    conversations = defaultdict(list)
+    for email in emails:
+        # Use conversation_id if available, otherwise use email.id as unique key
+        conv_key = email.conversation_id if email.conversation_id else f"single_{email.id}"
+        conversations[conv_key].append(email)
+    
+    # Build response for each conversation
+    result = []
+    for conv_id, conv_emails in conversations.items():
+        # Sort by received_at or created_at (most recent first)
+        conv_emails.sort(
+            key=lambda e: e.received_at or e.created_at,
+            reverse=True
+        )
+        
+        most_recent = conv_emails[0]
+        
+        # Collect unique participants (from author and to fields)
+        participants = set()
+        for email in conv_emails:
+            participants.add(email.author)
+            # Parse 'to' field which may contain multiple comma-separated addresses
+            if email.to:
+                to_addresses = [addr.strip() for addr in email.to.split(',')]
+                participants.update(to_addresses)
+        
+        # Get classification if available
+        classification = None
+        if most_recent.classifications:
+            # Get the most recent classification
+            latest_classification = max(
+                most_recent.classifications,
+                key=lambda c: c.created_at
+            )
+            classification = latest_classification.classification
+        
+        # Build conversation group response
+        conversation_group = ConversationGroupResponse(
+            conversation_id=most_recent.conversation_id,
+            subject=most_recent.subject,
+            message_count=len(conv_emails),
+            most_recent_email_id=most_recent.id,
+            most_recent_date=most_recent.received_at or most_recent.created_at,
+            participants=list(participants),
+            preview_text=most_recent.email_thread_text,
+            classification=classification
+        )
+        result.append(conversation_group)
+    
+    # Sort by most recent date (newest first)
+    result.sort(key=lambda c: c.most_recent_date, reverse=True)
+    
+    return result
+
 
 
 
@@ -599,7 +695,7 @@ async def generate_draft(
 # -----------------------------------------------------------------------------------------------------------------------
 # NEW ACCOUNT-BASED SYNC ENDPOINT
 # -----------------------------------------------------------------------------------------------------------------------
-
+## This is what is triggered when the "Sync button" is clicked in the frontend
 ## This is where the first email upsert takes place
 
 @router.post("/sync_outlook/{account_id}")

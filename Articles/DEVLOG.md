@@ -1689,3 +1689,200 @@ This commit represents a major step toward a complete email client experience. U
 
 The conversation threading foundation is solid, but there's significant tidying up needed in the codebase - particularly removing old code, improving error handling, and adding comprehensive tests.
 
+
+⸻
+
+## Commit 19 - Conversation-Based Email Grouping in Inbox View
+
+<!-- Nov 29, 2025 -->
+
+git commit -m "feat: group emails by conversation_id in inbox view with message count badges"
+
+### What I Built
+
+Transformed the inbox view from displaying individual emails to showing conversation-grouped cards, making it easier to see email threads at a glance and reducing visual clutter.
+
+### Technical Details
+
+#### 1. Backend: New Conversations Endpoint
+
+**Created:** `GET /api/emails/conversations`
+
+**Purpose:** Group emails by `conversation_id` and return aggregated metadata for each conversation.
+
+**Implementation:**
+```python
+# emails/router.py
+@router.get("/conversations", response_model=list[ConversationGroupResponse])
+def list_conversations(
+    account_id: str = Query(None),
+    db: Session = Depends(get_db)
+):
+....
+```
+
+Created a /conversations route in the emails/outer that builds conversation group response after sorting emails by most recent date descending. Also Collect unique participants (from author and to fields) are returned in this conversation group response.
+
+**Key Features:**
+- Groups emails by `conversation_id`
+- Emails without `conversation_id` treated as individual conversations
+- Returns most recent email metadata for each conversation
+- Aggregates unique participants across all emails in thread
+- Includes message count for multi-message conversations
+- Supports account filtering (same as original `/emails` endpoint)
+- Orders by most recent date descending
+
+**Response Schema:**
+```python
+# emails/schemas.py
+class ConversationGroupResponse(BaseModel):
+    conversation_id: Optional[str]
+    subject: str
+    message_count: int
+    most_recent_email_id: int
+    most_recent_date: datetime
+    participants: List[str]
+    preview_text: Optional[str]
+    classification: Optional[Literal["ignore", "respond", "notify"]]
+```
+
+#### 2. Frontend: Updated Inbox UI
+
+**Modified:** `app/emails/page.tsx`
+
+**Changes:**
+- Updated interface from `Email` to `Conversation`
+- Changed fetch endpoint from `/api/emails/` to `/api/emails/conversations`
+- Updated state management (`emails` → `conversations`)
+- Redesigned card layout to show conversation metadata
+
+**New Card Features:**
+```tsx
+// Message count badge (only shown for multi-message conversations)
+{conversation.message_count > 1 && (
+  <Badge className="bg-blue-600 text-white text-xs">
+    {conversation.message_count} messages
+  </Badge>
+)}
+
+// Participants list with overflow handling
+<strong>Participants:</strong>
+{conversation.participants.slice(0, 3).join(", ")}
+{conversation.participants.length > 3 && ` +${conversation.participants.length - 3} more`}
+
+// Navigation to most recent email (shows full thread)
+<Link href={`/emails/${conversation.most_recent_email_id}`}>
+```
+
+**UI Improvements:**
+- Blue badge shows message count for conversations with 2+ emails
+- Participants list shows up to 3 email addresses, then "+N more"
+- Clicking conversation navigates to thread view of most recent email
+- Maintains all existing styling and hover effects
+- Preserves account filtering functionality
+
+#### 3. Data Flow
+
+**Before:**
+```
+Frontend → GET /api/emails/ → Backend
+         ← List of individual emails ←
+         → Render 1 card per email
+```
+
+**After:**
+```
+Frontend → GET /api/emails/conversations → Backend
+         ← List of conversation groups ←
+         → Render 1 card per conversation
+```
+
+### Files Modified
+
+**Backend:**
+- `emails/schemas.py` - Added `ConversationGroupResponse` schema
+- `emails/router.py` - Added `/conversations` endpoint
+
+**Frontend:**
+- `app/emails/page.tsx` - Updated to use conversations endpoint and new UI
+
+### Example Output
+
+**API Response:**
+```json
+[
+  {
+    "conversation_id": "AAQkAGI1...",
+    "subject": "Project Update - Q4 Planning",
+    "message_count": 4,
+    "most_recent_email_id": 156,
+    "most_recent_date": "2025-11-29T18:30:00Z",
+    "participants": ["john@example.com", "sarah@example.com", "you@example.com"],
+    "preview_text": "Thanks for the update. Let's schedule...",
+    "classification": "respond"
+  },
+  {
+    "conversation_id": null,
+    "subject": "Weekly Newsletter",
+    "message_count": 1,
+    "most_recent_email_id": 155,
+    "most_recent_date": "2025-11-29T12:00:00Z",
+    "participants": ["newsletter@company.com", "you@example.com"],
+    "preview_text": "This week's highlights include...",
+    "classification": "ignore"
+  }
+]
+```
+
+
+### Benefits
+
+**User Experience:**
+- **Reduced clutter:** 10 emails in 2 conversations = 2 cards instead of 10
+- **Better context:** See who's involved in each conversation at a glance
+- **Quick navigation:** Click to see full thread immediately
+- **Visual indicators:** Message count badge shows conversation depth
+
+**Technical:**
+- **Efficient grouping:** Done in backend, not client-side
+- **Scalable:** Works with any number of emails/conversations
+- **Backward compatible:** Handles emails without `conversation_id`
+- **Reuses existing infrastructure:** Leverages existing thread endpoint
+
+### Edge Cases Handled
+
+1. **Emails without conversation_id:**
+   - Treated as individual conversations
+   - Each gets unique key: `single_{email.id}`
+   - Displayed normally with `message_count: 1`
+
+2. **Single-message conversations:**
+   - Message count badge hidden (only shows for 2+ messages)
+   - Displayed same as before, just grouped properly
+
+3. **Many participants:**
+   - Shows first 3, then "+N more"
+   - Prevents UI overflow with long participant lists
+
+4. **Account filtering:**
+   - Works exactly as before
+   - `/emails?account_id={uuid}` shows only that account's conversations
+
+
+### Future Enhancements Ideas (Not all to be implemented, but few chosen)
+
+- [ ] Accordian type which can show all emails in the thread in a collapsable manner
+- [ ] Add conversation search/filter
+- [ ] Show unread count per conversation
+- [ ] Add conversation labels/tags
+- [ ] Implement conversation archiving
+- [ ] Add "Mark conversation as read" action
+- [ ] Show conversation preview with multiple senders
+- [ ] Add conversation sorting options (date, participants, message count)
+- [ ] Implement conversation pinning
+
+### Notes
+
+This feature significantly improves the inbox UX by reducing clutter and providing better context. The UI clearly communicates conversation depth with the message count badge, and the participant list gives quick context about who's involved.
+
+The implementation reuses the existing thread infrastructure (`conversation_id` field, thread endpoint) and adds a new aggregation layer on top, making it a clean addition to the existing architecture.

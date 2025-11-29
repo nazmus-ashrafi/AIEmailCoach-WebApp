@@ -9,15 +9,16 @@ import SyncOutlookButton from "@/components/ui/SyncOutlookButton";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { UserMenu } from "@/components/auth/user-menu";
 
-interface Email {
-  id: number;
-  author: string;
-  to: string;
+
+interface Conversation {
+  conversation_id: string | null;
   subject: string;
-  email_thread_text: string;
-  email_thread_html: string;
+  message_count: number;
+  most_recent_email_id: number;
+  most_recent_date: string;
+  participants: string[];
+  preview_text: string | null;
   classification?: "ignore" | "notify" | "respond";
-  created_at?: string;
 }
 
 function cleanEmailPreview(text: string) {
@@ -34,7 +35,7 @@ function EmailsPageContent() {
   const searchParams = useSearchParams();
   const accountId = searchParams.get('account_id');
 
-  const [emails, setEmails] = useState<Email[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,8 +45,8 @@ function EmailsPageContent() {
 
     // Build URL with optional account_id parameter
     const url = accountId
-      ? `http://localhost:8000/api/emails/?account_id=${accountId}`
-      : "http://localhost:8000/api/emails/";
+      ? `http://localhost:8000/api/emails/conversations?account_id=${accountId}`
+      : "http://localhost:8000/api/emails/conversations";
 
     fetch(url)
       .then((res) => {
@@ -53,10 +54,10 @@ function EmailsPageContent() {
         return res.json();
       })
       .then((data) => {
-        setEmails(Array.isArray(data) ? data : []);
+        setConversations(Array.isArray(data) ? data : []);
       })
       .catch(() => {
-        setError("Failed to refresh emails after sync.");
+        setError("Failed to refresh conversations after sync.");
       })
       .finally(() => {
         setLoading(false);
@@ -64,25 +65,25 @@ function EmailsPageContent() {
   }
 
   useEffect(() => {
-    async function fetchEmails() {
+    async function fetchConversations() {
       try {
         // Build URL with optional account_id parameter
         const url = accountId
-          ? `http://localhost:8000/api/emails/?account_id=${accountId}`
-          : "http://localhost:8000/api/emails/";
+          ? `http://localhost:8000/api/emails/conversations?account_id=${accountId}`
+          : "http://localhost:8000/api/emails/conversations";
 
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
         const data = await res.json();
-        setEmails(Array.isArray(data) ? data : []);
+        setConversations(Array.isArray(data) ? data : []);
       } catch (err: any) {
         console.error(err);
-        setError("Failed to fetch emails.");
+        setError("Failed to fetch conversations.");
       } finally {
         setLoading(false);
       }
     }
-    fetchEmails();
+    fetchConversations();
   }, [accountId]); // Re-fetch when accountId changes
 
   const getBadgeColor = (classification?: string) => {
@@ -98,7 +99,7 @@ function EmailsPageContent() {
     }
   };
 
-  if (loading) return <p className="p-6 text-stone-400">Loading emails...</p>;
+  if (loading) return <p className="p-6 text-stone-400">Loading conversations...</p>;
   if (error) return <p className="p-6 text-red-400">{error}</p>;
 
   return (
@@ -130,38 +131,46 @@ function EmailsPageContent() {
         {/* Sync Button */}
         <SyncOutlookButton onFinished={refreshAfterSync} />
 
-        {emails.length === 0 ? (
-          <p className="text-gray-400">No emails found.</p>
+        {conversations.length === 0 ? (
+          <p className="text-gray-400">No conversations found.</p>
         ) : (
           <div className="grid gap-4">
-            {emails.map((email) => (
-              <Link href={`/emails/${email.id}`} key={email.id}>
+            {conversations.map((conversation) => (
+              <Link
+                href={`/emails/${conversation.most_recent_email_id}`}
+                key={conversation.conversation_id || conversation.most_recent_email_id}
+              >
                 <Card
-                  key={email.id}
                   className="bg-stone-900 border-stone-800 p-4 hover:bg-stone-800 transition-colors duration-200"
                 >
                   <CardHeader className="flex flex-row justify-between items-start p-0">
                     <CardTitle className="text-lg font-semibold text-white flex-1 pr-4">
-                      {email.subject}
+                      {conversation.subject}
                     </CardTitle>
-                    <span className="text-xs text-stone-400">
-                      {new Date(email.created_at || "").toLocaleString()}
-                    </span>
-                    <Badge
-                      className={`${getBadgeColor(email.classification)} uppercase text-xs shrink-0`}
-                    >
-                      {email.classification || "TBD"}
-                    </Badge>
+                    <div className="flex gap-2 items-center shrink-0">
+                      <span className="text-xs text-stone-400">
+                        {new Date(conversation.most_recent_date).toLocaleString()}
+                      </span>
+                      {conversation.message_count > 1 && (
+                        <Badge className="bg-blue-600 text-white text-xs">
+                          {conversation.message_count} messages
+                        </Badge>
+                      )}
+                      <Badge
+                        className={`${getBadgeColor(conversation.classification)} uppercase text-xs`}
+                      >
+                        {conversation.classification || "TBD"}
+                      </Badge>
+                    </div>
                   </CardHeader>
                   <CardContent className="p-0 mt-3">
                     <p className="text-sm text-stone-400">
-                      <strong className="text-stone-300">From:</strong> {email.author}
-                    </p>
-                    <p className="text-sm text-stone-400">
-                      <strong className="text-stone-300">To:</strong> {email.to}
+                      <strong className="text-stone-300">Participants:</strong>{" "}
+                      {conversation.participants.slice(0, 3).join(", ")}
+                      {conversation.participants.length > 3 && ` +${conversation.participants.length - 3} more`}
                     </p>
                     <p className="text-sm mt-2 line-clamp-3 text-stone-300">
-                      {cleanEmailPreview(email.email_thread_text)}
+                      {cleanEmailPreview(conversation.preview_text || "")}
                     </p>
                   </CardContent>
                 </Card>
