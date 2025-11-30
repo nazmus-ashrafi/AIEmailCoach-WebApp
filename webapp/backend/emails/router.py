@@ -161,7 +161,16 @@ def list_conversations(
             reverse=True
         )
         
+        ## Get the most recent email
         most_recent = conv_emails[0]
+
+        ## Get the email account - all emails in a conversation belong to the same account
+        ## Use the first email that has an account (should be all of them, but this is defensive)
+        account_email = "Unknown"
+        for email in conv_emails:
+            if email.email_account:
+                account_email = email.email_account.email_address
+                break
         
         # Collect unique participants (from author and to fields)
         participants = set()
@@ -191,7 +200,8 @@ def list_conversations(
             most_recent_date=most_recent.received_at or most_recent.created_at,
             participants=list(participants),
             preview_text=most_recent.email_thread_text,
-            classification=classification
+            classification=classification,
+            account_email=account_email
         )
         result.append(conversation_group)
     

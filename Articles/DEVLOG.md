@@ -1886,3 +1886,65 @@ Frontend → GET /api/emails/conversations → Backend
 This feature significantly improves the inbox UX by reducing clutter and providing better context. The UI clearly communicates conversation depth with the message count badge, and the participant list gives quick context about who's involved.
 
 The implementation reuses the existing thread infrastructure (`conversation_id` field, thread endpoint) and adds a new aggregation layer on top, making it a clean addition to the existing architecture.
+
+
+⸻
+
+## Commit 20 - Component Refactoring: Reusable Conversation List & Sidebar
+
+<!-- Nov 30, 2025 -->
+
+git commit -m "refactor: extract reusable ConversationList component and add ConversationSidebar to email detail page"
+
+### What I Built
+
+Refactored the conversation list UI into reusable components and added a conversation sidebar to the email detail page. This improves code organization, eliminates duplication, and enhances user navigation. Also added account email attribution to help distinguish conversations from multiple connected accounts.
+
+### Key Changes
+
+**Backend (Account Attribution):**
+- Added `account_email` field to `ConversationGroupResponse` schema
+- Modified `list_conversations` endpoint to defensively (try to find from oldest email in thread) find and include the account email for each conversation group
+- Defaults to "Unknown" if no account is found
+
+**Frontend (Component Architecture):**
+
+Created three new pieces:
+1. **`utils/email-utils.ts`** - Extracted `cleanEmailPreview()` and `getBadgeColor()` utility functions to avoid duplication
+2. **`components/emails/ConversationList.tsx`** - Pure presentational component that renders conversation cards. Accepts conversations and utility functions as props. Displays subject, timestamp, account badge (purple styling), message count, classification, participants, and preview text.
+3. **`components/emails/ConversationSidebar.tsx`** - Self-contained container component that fetches conversations from the API and renders them using ConversationList. Manages its own loading/error states and supports optional account filtering.
+
+**Refactored Pages:**
+- **Inbox page** (`app/emails/page.tsx`) - Removed 75 lines of inline rendering logic and now uses the ConversationList component. Reduced from 100+ lines to ~70 lines.
+- **Email detail page** (`app/emails/[id]/page.tsx`) - Reorganized layout: left column now shows ConversationSidebar (for easy navigation to other conversations), right column shows EmailThreadList (the full thread). Previously the thread list was in the sidebar and email content was rendered inline.
+
+### Architecture
+
+Follows container/presentational pattern:
+- **ConversationSidebar** = Container (fetches data, manages state)
+- **ConversationList** = Presentational (receives data, renders UI)
+- **Utility functions** = Pure functions passed as props for flexibility
+
+### Benefits
+
+- **DRY principle** - Conversation rendering logic exists in one place
+- **Better UX** - Users can navigate between conversations from the detail page without returning to inbox
+- **Account visibility** - Purple badge shows which email account each conversation belongs to
+- **Maintainability** - Future changes to conversation UI only need to happen in ConversationList
+- **Reusability** - Components can be used anywhere (dashboard, widgets, etc.)
+
+### Files Modified
+
+Backend: `emails/schemas.py`, `emails/router.py`
+
+Frontend (new): `utils/email-utils.ts`, `components/emails/ConversationList.tsx`, `components/emails/ConversationSidebar.tsx`
+
+Frontend (modified): `app/emails/page.tsx`, `app/emails/[id]/page.tsx`
+
+### Future Improvements
+
+- Highlight current conversation in sidebar
+- Add conversation search/filtering
+- Implement keyboard navigation
+- Add unit/component tests
+- Consider conversation actions (archive, mark read, etc.)

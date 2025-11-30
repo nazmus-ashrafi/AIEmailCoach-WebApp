@@ -79,6 +79,7 @@ class ConversationGroupResponse(BaseModel):
     participants: List[str]  # Unique email addresses involved
     preview_text: Optional[str]
     classification: Optional[Literal["ignore", "respond", "notify"]] = None
+    account_email: str  # Email account this conversation belongs to
     
     class Config:
         orm_mode = True
