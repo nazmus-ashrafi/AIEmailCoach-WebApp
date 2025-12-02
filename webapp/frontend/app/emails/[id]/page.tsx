@@ -48,15 +48,15 @@ export default async function EmailDetailPage({
         ← Back to Inbox
       </Link>
 
-      {/* Two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Two-column layout - lg:grid-cols-2 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left column: Conversation list sidebar */}
         <div className="lg:col-span-1">
-          <ConversationSidebar />
+          <ConversationSidebar selectedEmailId={email.id} />
         </div>
 
         {/* Right column: Email detail */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-1">
           <div className="bg-stone-900 border border-stone-800 p-6 rounded-2xl">
             <h1 className="text-2xl text-white mb-2">{email.subject}</h1>
             <p className="text-sm text-stone-400 mb-1">

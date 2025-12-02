@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Loader2 } from "lucide-react";
 import ConversationList, { Conversation } from "@/components/emails/ConversationList";
 import { cleanEmailPreview, getBadgeColor } from "@/utils/email-utils";
 
 interface ConversationSidebarProps {
     accountId?: string;
+    selectedEmailId?: number;
 }
 
-export default function ConversationSidebar({ accountId }: ConversationSidebarProps) {
+export default function ConversationSidebar({ accountId, selectedEmailId }: ConversationSidebarProps) {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -35,21 +38,50 @@ export default function ConversationSidebar({ accountId }: ConversationSidebarPr
     }, [accountId]);
 
     if (loading) {
-        return <p className="text-stone-400 text-sm">Loading conversations...</p>;
+        return (
+            <div className="bg-stone-900 border border-stone-800 rounded-2xl overflow-hidden">
+                <div className="p-4 border-b border-stone-800">
+                    <h2 className="text-lg font-semibold text-white">Conversations</h2>
+                </div>
+                <div className="flex items-center justify-center py-16">
+                    <Loader2 className="h-8 w-8 animate-spin text-stone-400" />
+                </div>
+            </div>
+        );
     }
 
     if (error) {
-        return <p className="text-red-400 text-sm">{error}</p>;
+        return (
+            <div className="bg-stone-900 border border-stone-800 rounded-2xl overflow-hidden">
+                <div className="p-4 border-b border-stone-800">
+                    <h2 className="text-lg font-semibold text-white">Conversations</h2>
+                </div>
+                <div className="p-8 text-center">
+                    <p className="text-red-400">{error}</p>
+                </div>
+            </div>
+        );
     }
 
     return (
-        <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4">
-            <h2 className="text-lg font-semibold text-white mb-4">Conversations</h2>
-            <ConversationList
-                conversations={conversations}
-                getBadgeColor={getBadgeColor}
-                cleanEmailPreview={cleanEmailPreview}
-            />
+        <div className="bg-stone-900 border border-stone-800 rounded-2xl overflow-hidden">
+            <div className="p-4 border-b border-stone-800">
+                <h2 className="text-lg font-semibold text-white">Conversations</h2>
+                <p className="text-sm text-stone-400 mt-1">
+                    {conversations.length} {conversations.length === 1 ? "conversation" : "conversations"}
+                </p>
+            </div>
+
+            <ScrollArea className="h-[600px]">
+                <div className="p-4">
+                    <ConversationList
+                        conversations={conversations}
+                        getBadgeColor={getBadgeColor}
+                        cleanEmailPreview={cleanEmailPreview}
+                        selectedEmailId={selectedEmailId}
+                    />
+                </div>
+            </ScrollArea>
         </div>
     );
 }
