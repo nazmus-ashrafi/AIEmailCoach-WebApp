@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "../styles/email-content.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -45,11 +46,11 @@
   /* Green scale */
   --color-green-400: oklch(0.82 0.15 145);
   --color-green-500: oklch(0.72 0.17 145);
-  
+
   /* Amber scale */
   --color-amber-400: oklch(0.82 0.15 75);
   --color-amber-500: oklch(0.72 0.17 75);
-  
+
   /* Stone scale */
   --color-stone-300: oklch(0.72 0.01 75);
   --color-stone-400: oklch(0.62 0.01 75);
@@ -60,10 +61,14 @@
 
 :root {
   --radius: 0.625rem;
-   --background: #000000; /* true black */
-  --foreground: #ffffff; /* white text */
-  --card: #1a1a1a;       /* dark gray cards */
-  --card-foreground: #f5f5f5; /* card text */
+  --background: #000000;
+  /* true black */
+  --foreground: #ffffff;
+  /* white text */
+  --card: #1a1a1a;
+  /* dark gray cards */
+  --card-foreground: #f5f5f5;
+  /* card text */
   --popover: #1a1a1a;
   --popover-foreground: #f5f5f5;
   --primary: oklch(0.216 0.006 56.043);
@@ -131,6 +136,7 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }

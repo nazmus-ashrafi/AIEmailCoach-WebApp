@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import { Loader2, Mail, Clock, User } from "lucide-react";
+import { EmailContentRenderer } from "./EmailContentRenderer";
 
 interface Email {
     id: number;
@@ -174,11 +175,7 @@ export function EmailThreadList({ emailId }: EmailThreadListProps) {
                                     </div>
 
                                     {/* Email Content */}
-                                    <div className="p-4">
-                                        <div className="text-sm text-stone-300 leading-relaxed whitespace-pre-wrap">
-                                            {cleanEmailContent(email.email_thread_text || "No content")}
-                                        </div>
-                                    </div>
+                                    <EmailContentRenderer email={email} />
 
                                     {/* Current Email Indicator */}
                                     {isCurrentEmail && (

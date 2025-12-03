@@ -2090,3 +2090,59 @@ This commit focuses purely on UI/UX polish without changing any business logic. 
 
 The 50/50 layout split significantly improves the user experience by giving equal importance to conversation browsing and email reading. The scrollable sidebar with visual feedback creates a more intuitive navigation experience, while the responsive design ensures usability across all device sizes.
 
+
+⸻
+
+## Commit 22 - Conditional HTML Rendering for Forwarded Emails
+
+<!-- Dec 3, 2025 -->
+
+git commit -m "feat[frontend]: implement conditional HTML rendering for forwarded email chains"
+
+### What I Built
+
+Implemented intelligent email content rendering that displays forwarded email chains in HTML format while maintaining clean text rendering for regular emails. The solution includes XSS protection, error handling with fallbacks, and visual indicators to help users understand rendering modes.
+
+### Problem Solved
+
+The application stored both `email_thread_text` (clean text) and `email_thread_html` (raw HTML) in the database, but only rendered text. This caused forwarded emails to lose their nested message chain structure, making it difficult to follow conversation context. HTML rendering was needed for forwarded chains while preserving text rendering for simple emails.
+
+### Technical Implementation
+
+**New Components:**
+- `components/emails/SafeHtmlRenderer.tsx` - Secure HTML renderer using DOMPurify for XSS protection with fallback to text on errors
+- `components/emails/EmailContentRenderer.tsx` - Intelligent content renderer that conditionally displays HTML or text based on email type
+
+**Utilities Added:**
+- `utils/email-utils.ts` - Added `isForwardedEmail()` and `shouldRenderAsHtml()` detection functions using subject line analysis and HTML structure markers
+
+**Styling:**
+- `styles/email-content.css` - Comprehensive dark-themed CSS for HTML email elements (tables, blockquotes, code blocks, links, images)
+- Imported into `app/globals.css`
+
+**Integration:**
+- Updated `components/emails/EmailThreadList_v2.tsx` to use `EmailContentRenderer` instead of inline text rendering
+
+**Dependencies:**
+- Installed `dompurify` for client-side HTML sanitization
+
+### How It Works
+
+The system detects forwarded emails by checking subject lines (Fwd:, FW:) and HTML structure markers (gmail_quote, outlook_quote). When detected, it renders `email_thread_html` through DOMPurify sanitization. Regular emails continue rendering as clean text. A multi-layer fallback system ensures content is always accessible: HTML → sanitized text → error UI.
+
+### Security
+
+DOMPurify configuration uses whitelist approach for allowed HTML tags and attributes, blocks malicious protocols (javascript:, vbscript:), and validates URIs. All HTML content is sanitized before rendering to prevent XSS attacks.
+
+### Files Modified
+
+**New:** `components/emails/SafeHtmlRenderer.tsx`, `components/emails/EmailContentRenderer.tsx`, `styles/email-content.css`
+
+**Modified:** `utils/email-utils.ts`, `components/emails/EmailThreadList_v2.tsx`, `app/globals.css`
+
+**Documentation:** Created `TECHNICAL_ARTICLE_HTML_EMAIL_RENDERING.md` with comprehensive implementation details
+
+### Visual Enhancements
+
+Added amber "Forwarded Chain" badge that appears above HTML-rendered emails to indicate why formatting differs from regular text emails.
+

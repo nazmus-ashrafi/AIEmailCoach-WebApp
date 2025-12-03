@@ -72,6 +72,7 @@ export default function ConversationSidebar({ accountId, selectedEmailId }: Conv
                 </p>
             </div>
 
+            {/* ScrollArea used to keep sidebar height fixed and match EmailThreadList design for consistency */}
             <ScrollArea className="h-[600px]">
                 <div className="p-4">
                     <ConversationList
