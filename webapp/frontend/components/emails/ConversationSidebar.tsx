@@ -9,9 +9,10 @@ import { cleanEmailPreview, getBadgeColor } from "@/utils/email-utils";
 interface ConversationSidebarProps {
     accountId?: string;
     selectedEmailId?: number;
+    searchTerm?: string;
 }
 
-export default function ConversationSidebar({ accountId, selectedEmailId }: ConversationSidebarProps) {
+export default function ConversationSidebar({ accountId, selectedEmailId, searchTerm }: ConversationSidebarProps) {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -63,12 +64,20 @@ export default function ConversationSidebar({ accountId, selectedEmailId }: Conv
         );
     }
 
+    // Filter conversations by subject if searchTerm is provided
+    const filteredConversations = searchTerm
+        ? conversations.filter((conv) =>
+            conv.subject.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        : conversations;
+
     return (
         <div className="bg-stone-900 border border-stone-800 rounded-2xl overflow-hidden">
             <div className="p-4 border-b border-stone-800">
                 <h2 className="text-lg font-semibold text-white">Conversations</h2>
                 <p className="text-sm text-stone-400 mt-1">
-                    {conversations.length} {conversations.length === 1 ? "conversation" : "conversations"}
+                    {filteredConversations.length} {filteredConversations.length === 1 ? "conversation" : "conversations"}
+                    {searchTerm && ` (filtered from ${conversations.length})`}
                 </p>
             </div>
 
@@ -76,7 +85,7 @@ export default function ConversationSidebar({ accountId, selectedEmailId }: Conv
             <ScrollArea className="h-[600px]">
                 <div className="p-4">
                     <ConversationList
-                        conversations={conversations}
+                        conversations={filteredConversations}
                         getBadgeColor={getBadgeColor}
                         cleanEmailPreview={cleanEmailPreview}
                         selectedEmailId={selectedEmailId}
