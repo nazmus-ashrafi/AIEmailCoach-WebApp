@@ -9,7 +9,7 @@ import { cleanEmailPreview, getBadgeColor } from "@/utils/email-utils";
 interface ConversationSidebarProps {
     accountId?: string;
     selectedEmailId?: number;
-    searchTerm?: string;
+    searchTerm?: string; // searchTerm is used to filter conversations
 }
 
 export default function ConversationSidebar({ accountId, selectedEmailId, searchTerm }: ConversationSidebarProps) {

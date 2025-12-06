@@ -17,12 +17,15 @@ export default function ConversationSearchBar({
     const [inputValue, setInputValue] = useState("");
 
     // Debounce the search term
+    // Following the YAGNI (You Aren't Gonna Need It) principle + Rule of Three (extract on the third use, not the first), and keeping the debounce login here
+    // May make it a custom hook in the future, if debounce is needed in other places
     useEffect(() => {
         const timer = setTimeout(() => {
             onSearchChange(inputValue);
         }, 300);
 
-        return () => clearTimeout(timer);
+        return () => clearTimeout(timer); // if value changes before 300ms, clear the timer
+
     }, [inputValue, onSearchChange]);
 
     const handleClear = () => {

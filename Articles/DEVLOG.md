@@ -2217,3 +2217,52 @@ Implemented a search-by-subject feature for the email detail page that allows us
 
 This implementation demonstrates professional React development with component reusability, type safety, and performance optimization. The search bar component can be easily reused on other pages (e.g., main inbox page). The architecture supports future enhancements without major refactoring.
 
+
+⸻
+
+## Commit 24 - Technical Documentation: Email Search Implementation
+
+<!-- Dec 6, 2025 -->
+
+git commit -m "docs: create comprehensive technical article for email search feature"
+
+### What I Built
+
+Created a detailed technical article documenting the email search implementation from Commit 23. The article includes architectural analysis, component breakdowns, design pattern explanations, and custom diagrams illustrating the code structure.
+
+### Article Contents
+
+**File:** `Articles/4_EMAIL_SEARCH_ARTICLE.md`
+
+- Executive summary and feature overview
+- Architectural decision rationale (why independent components, client-side filtering, debouncing)
+- Component-by-component code analysis with detailed explanations
+- Design patterns applied (Controlled Component, Callback Props, Debouncing, etc.)
+- Performance considerations and O(n) complexity analysis
+- Future enhancement ideas
+- Lessons learned from implementation
+
+### Visual Documentation
+
+Created custom diagrams to illustrate:
+- Full architecture overview showing component relationships
+- Individual component structures (ConversationSearchBar, ConversationSidebar, EmailDetailPage)
+- Data flow between components
+
+**Images:** `Articles/images/4-EmailSearch/`
+- `fig1-fullarchitecture.png` - Complete system architecture
+- `fig2-comp1-ConversationSearchBar.png` - Search component structure
+- `fig3-comp2-ConversationSideBar.png` - Sidebar component with filtering
+- `fig4-comp3-EmailDetailsPage.png` - Page integration
+
+### Purpose
+
+This article serves as both a learning resource and technical documentation, showing:
+- Implementation of professional React patterns
+- Making informed architectural decisions
+- Documenting technical work comprehensively
+- Explaining complex concepts clearly
+
+### Notes
+
+The documentation process reinforced understanding of the implementation decisions and will serve as a reference for future features.
