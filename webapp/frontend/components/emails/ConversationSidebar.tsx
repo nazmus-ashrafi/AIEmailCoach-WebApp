@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2 } from "lucide-react";
 import ConversationList, { Conversation } from "@/components/emails/ConversationList";
-import { cleanEmailPreview, getBadgeColor } from "@/utils/email-utils";
+import { cleanEmailPreview, getBadgeColor, searchConversation } from "@/utils/email-utils";
 
 interface ConversationSidebarProps {
     accountId?: string;
@@ -64,10 +64,12 @@ export default function ConversationSidebar({ accountId, selectedEmailId, search
         );
     }
 
+
+
     // Filter conversations by subject if searchTerm is provided
     const filteredConversations = searchTerm
         ? conversations.filter((conv) =>
-            conv.subject.toLowerCase().includes(searchTerm.toLowerCase())
+            searchConversation(conv, searchTerm)
         )
         : conversations;
 

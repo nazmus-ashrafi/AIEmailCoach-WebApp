@@ -2,6 +2,8 @@
  * Utility functions for email processing
  */
 
+import { Conversation } from "@/components/emails/ConversationList";
+
 interface Email {
     subject?: string;
     email_thread_text?: string;
@@ -76,5 +78,30 @@ export function shouldRenderAsHtml(email: Email): boolean {
         return true;
     }
 
+    return false;
+}
+
+/**
+ * Search for a conversation by subject, account email, classification, or participants
+ */
+export function searchConversation(conv: Conversation, searchTerm: string): boolean {
+    const term = searchTerm.toLowerCase();
+
+    // Type normalization on-the-fly --
+
+    // Search subject
+    if (conv.subject?.toLowerCase().includes(term)) return true;
+    // Search account email
+    if (conv.account_email?.toLowerCase().includes(term)) return true;
+
+    // Search classification
+    if (conv.classification?.toLowerCase().includes(term)) return true;
+    // Handling TBD cases explicitly
+    if (!conv.classification && term === 'tbd') return true;
+
+    // Search preview text
+    if (conv.preview_text?.toLowerCase().includes(term)) return true;
+    // Search participants
+    if (conv.participants.some(p => p.toLowerCase().includes(term))) return true;
     return false;
 }
