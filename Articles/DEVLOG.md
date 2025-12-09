@@ -2189,3 +2189,52 @@ The current implementation only supports client-side filtering by subject, which
 
 ---
 
+## Commit 24 - Classification Data Management using React Query
+
+<!-- Dec 9, 2025 -->
+
+git commit -m "feat: implement React Query for server state management"
+
+```
+feat: implement React Query for server state management
+
+Replace manual useEffect + fetch patterns with React Query to solve
+stale classification data issue. Classification updates now automatically
+propagate to ConversationSidebar through cache invalidation.
+
+Changes:
+- Add @tanstack/react-query and devtools dependencies
+- Create QueryProvider with optimized cache configuration
+- Implement API layer with typed functions for conversations and classifications
+- Create custom hooks (useConversations, useUpdateClassification)
+- Update ConversationSidebar to use query hook
+- Update ClassifyIsland to use mutation hook with cache invalidation
+- Establish scalable pattern for future data types
+
+Benefits:
+- Automatic data synchronization across components
+- Reduced boilerplate (~50 lines removed)
+- Built-in loading/error states and retry logic
+- DevTools for cache inspection
+- Type-safe API layer
+- Professional, industry-standard architecture
+
+Fixes: Stale classification badges requiring manual page refresh
+```
+
+
+I solved the stale classification data problem by migrating from manual `useEffect` + `fetch` patterns to React Query, the industry-standard solution for server state management. This implementation:
+
+**Eliminated the problem**: Classification updates now automatically propagate to all components displaying that data through React Query's cache invalidation mechanism.
+
+**Reduced complexity**: Removed ~50 lines of boilerplate state management code while gaining more functionality.
+
+**Established patterns**: Created a reusable architecture that any engineer can follow to add new data types (conversations, classifications, drafts, threads, etc.).
+
+**Improved developer experience**: Added DevTools, automatic error handling, retry logic, and background refetching.
+
+**Followed professional standards**: Used the same tools and patterns employed by major tech companies, making the codebase familiar to experienced React developers.
+
+The key insight is that **server state and client state are fundamentally different**. Server state (data from APIs) should be managed by specialized tools like React Query, while client state (UI toggles, form inputs) can remain in local component state or context. This separation of concerns creates a more maintainable, scalable, and professional codebase. 
+
+Detailed article about the migration to React Query will be added soon.

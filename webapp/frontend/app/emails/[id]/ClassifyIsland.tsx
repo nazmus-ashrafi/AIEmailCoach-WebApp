@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { API_BASE_URL } from "@/lib/config";
 import { Loader2 } from "lucide-react";
+import { useUpdateClassification } from "@/hooks/useUpdateClassification";
 
 interface Props {
   emailId: number;
@@ -13,58 +13,48 @@ export default function ClassifyIsland({ emailId, initialClassification }: Props
   const [classification, setClassification] = useState(initialClassification);
   const [reasoning, setReasoning] = useState<string | null>(null);
   const [aiDraft, setAiDraft] = useState<string | null>(null);
-  const [loadingClassify, setLoadingClassify] = useState(false);
-  const [loadingDraft, setLoadingDraft] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const mutation = useUpdateClassification();
 
   // --- CLASSIFY EMAIL ---
   const handleClassify = async () => {
-    setLoadingClassify(true);
     setError(null);
 
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/emails/classify_email?email_id=${emailId}`,
-        { method: "POST" }
-      );
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      const data = await res.json();
-      setClassification(data.classification);
-      setReasoning(data.reasoning);
-      setAiDraft(data.ai_draft || null);
-    } catch (err: any) {
-      console.error(err);
-      setError("Failed to classify email.");
-    } finally {
-      setLoadingClassify(false);
-    }
+    mutation.mutate(
+      { emailId, action: "classify" },
+      {
+        onSuccess: (data) => {
+          setClassification(data.classification);
+          setReasoning(data.reasoning);
+          setAiDraft(data.ai_draft || null);
+        },
+        onError: (err) => {
+          console.error(err);
+          setError("Failed to classify email.");
+        },
+      }
+    );
   };
 
   // --- GENERATE DRAFT ---
   const handleGenerateDraft = async () => {
-    setLoadingDraft(true);
     setError(null);
 
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/emails/${emailId}/generate_draft`,
-        { method: "POST" }
-      );
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      const data = await res.json();
-      setClassification(data.classification);
-      setReasoning(data.reasoning);
-      setAiDraft(data.ai_draft || null);
-    } catch (err: any) {
-      console.error(err);
-      setError("Failed to generate draft.");
-    } finally {
-      setLoadingDraft(false);
-    }
+    mutation.mutate(
+      { emailId, action: "generate_draft" },
+      {
+        onSuccess: (data) => {
+          setClassification(data.classification);
+          setReasoning(data.reasoning);
+          setAiDraft(data.ai_draft || null);
+        },
+        onError: (err) => {
+          console.error(err);
+          setError("Failed to generate draft.");
+        },
+      }
+    );
   };
 
   // --- Classification color mapping ---
@@ -86,24 +76,24 @@ export default function ClassifyIsland({ emailId, initialClassification }: Props
       <div className="flex flex-wrap justify-center gap-4">
         <button
           onClick={handleClassify}
-          disabled={loadingClassify}
+          disabled={mutation.isPending}
           className="px-6 py-3 text-lg font-semibold rounded-xl bg-stone-700 text-white hover:bg-stone-600 disabled:opacity-50 flex items-center justify-center gap-2 transition-all shadow-md"
         >
-          {loadingClassify && <Loader2 className="h-5 w-5 animate-spin" />}
-          {loadingClassify
+          {mutation.isPending && <Loader2 className="h-5 w-5 animate-spin" />}
+          {mutation.isPending
             ? "Classifying..."
             : classification
-            ? "Reclassify Email"
-            : "Classify Email"}
+              ? "Reclassify Email"
+              : "Classify Email"}
         </button>
 
         <button
           onClick={handleGenerateDraft}
-          disabled={loadingDraft}
+          disabled={mutation.isPending}
           className="px-6 py-3 text-lg font-semibold rounded-xl bg-indigo-700 text-white hover:bg-indigo-600 disabled:opacity-50 flex items-center justify-center gap-2 transition-all shadow-md"
         >
-          {loadingDraft && <Loader2 className="h-5 w-5 animate-spin" />}
-          {loadingDraft ? "Generating..." : "Generate Draft"}
+          {mutation.isPending && <Loader2 className="h-5 w-5 animate-spin" />}
+          {mutation.isPending ? "Generating..." : "Generate Draft"}
         </button>
       </div>
 

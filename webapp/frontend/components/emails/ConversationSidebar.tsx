@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2 } from "lucide-react";
 import ConversationList, { Conversation } from "@/components/emails/ConversationList";
 import { cleanEmailPreview, getBadgeColor, searchConversation } from "@/utils/email-utils";
+import { useConversations } from "@/hooks/useConversations";
 
 interface ConversationSidebarProps {
     accountId?: string;
@@ -13,30 +13,7 @@ interface ConversationSidebarProps {
 }
 
 export default function ConversationSidebar({ accountId, selectedEmailId, searchTerm }: ConversationSidebarProps) {
-    const [conversations, setConversations] = useState<Conversation[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        async function fetchConversations() {
-            try {
-                const url = accountId
-                    ? `http://localhost:8000/api/emails/conversations?account_id=${accountId}`
-                    : "http://localhost:8000/api/emails/conversations";
-
-                const res = await fetch(url, { cache: "no-store" });
-                if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
-                const data = await res.json();
-                setConversations(Array.isArray(data) ? data : []);
-            } catch (err: any) {
-                console.error(err);
-                setError("Failed to fetch conversations.");
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchConversations();
-    }, [accountId]);
+    const { data: conversations = [], isLoading: loading, error } = useConversations(accountId);
 
     if (loading) {
         return (
@@ -58,7 +35,7 @@ export default function ConversationSidebar({ accountId, selectedEmailId, search
                     <h2 className="text-lg font-semibold text-white">Conversations</h2>
                 </div>
                 <div className="p-8 text-center">
-                    <p className="text-red-400">{error}</p>
+                    <p className="text-red-400">{error.message || "Failed to fetch conversations."}</p>
                 </div>
             </div>
         );
