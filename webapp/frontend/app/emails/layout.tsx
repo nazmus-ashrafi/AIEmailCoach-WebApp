@@ -6,7 +6,9 @@ import Link from "next/link";
 import ConversationSearchBar from "@/components/emails/ConversationSearchBar";
 import ConversationSidebar from "@/components/emails/ConversationSidebar";
 import { UserMenu } from "@/components/auth/user-menu";
-import SyncOutlookButton from "@/components/ui/SyncOutlookButton";
+import { SyncAccountButton } from "@/components/ui/SyncAccountButton";
+
+
 
 
 export default function EmailsLayout({
@@ -68,7 +70,7 @@ export default function EmailsLayout({
                                 placeholder="Search Inbox..."
                             />
                             {/* Sync Button */}
-                            <SyncOutlookButton onFinished={() => { }} />
+                            <SyncAccountButton accountId={accountId} />
 
                             <ConversationSidebar
                                 accountId={accountId}

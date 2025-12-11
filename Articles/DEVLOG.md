@@ -2273,3 +2273,38 @@ Fixes: Conversation sidebar showing all accounts instead of filtered view
 ```
 
 Solved the multi-account email mixing problem by implementing URL-based account filtering. When users click "View Inbox" on an account, they now navigate to `/emails/{first_email_id}?account_id={account_id}` instead of a conversation list. The email detail page automatically adds the account_id to the URL, which the layout reads and passes to the conversation sidebar. All conversation links preserve the account_id parameter, ensuring the filter persists as users navigate between emails. The backend already supported account filtering, so no API changes were needed - just proper parameter passing through the frontend component chain.
+
+
+---
+
+## Commit 26 - Account-Specific Sync Button with React Query
+
+<!-- Dec 12, 2025 -->
+
+git commit -m "feat: add account-aware sync button with React Query integration"
+
+```
+feat: add account-aware sync button with React Query integration
+
+Fixed broken sync button in email detail layout. Button now syncs the correct
+account and auto-refreshes conversation list via React Query cache invalidation.
+
+Changes:
+- Create useSyncAccount React Query mutation hook (hooks/useSyncAccount.ts)
+- Create SyncAccountButton component with loading/success/error states
+- Replace deprecated SyncOutlookButton in email layout
+- Add auto-dismiss for success/error messages (5 seconds)
+- Handle edge cases: no account, sync in progress, failures
+- Invalidate conversations cache on successful sync
+
+Benefits:
+- Syncs correct account based on URL context
+- Auto-refreshes sidebar without page reload
+- Professional UX with loading states and auto-dismiss
+- Consistent React Query pattern
+- Account-specific cache invalidation
+
+Fixes: Sync button calling deprecated endpoint and not refreshing data
+```
+
+Fixed the broken sync button in the email detail page layout. The old `SyncOutlookButton` was calling a deprecated endpoint without account context and had an empty callback that didn't refresh the conversation list. Created a new `SyncAccountButton` component that uses React Query mutation pattern with proper cache invalidation. The button reads `accountId` from URL params, calls the correct `/api/emails/sync_outlook/{account_id}` endpoint, and automatically invalidates the conversations cache on success, triggering a re-fetch. Added professional UX touches including loading spinner, success/error messages that auto-dismiss after 5 seconds, and proper handling of edge cases (no account selected, sync in progress, failures). The implementation reuses the existing `emailAccountsClient.syncAccount()` method which already had auth token injection via `apiClient` wrapper.
