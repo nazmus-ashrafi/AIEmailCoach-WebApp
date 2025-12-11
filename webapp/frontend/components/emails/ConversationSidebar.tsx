@@ -68,6 +68,7 @@ export default function ConversationSidebar({ accountId, selectedEmailId, search
                         getBadgeColor={getBadgeColor}
                         cleanEmailPreview={cleanEmailPreview}
                         selectedEmailId={selectedEmailId}
+                        accountId={accountId}
                     />
                 </div>
             </ScrollArea>

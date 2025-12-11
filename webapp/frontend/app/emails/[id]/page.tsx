@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import ClassifyIsland from "./ClassifyIsland";
 import { EmailThreadList } from "@/components/emails/EmailThreadList_v2";
 import { Loader2 } from "lucide-react";
@@ -15,10 +15,13 @@ interface Email {
   email_thread_html: string;
   classification?: "ignore" | "notify" | "respond";
   created_at?: string;
+  email_account_id?: string; // UUID of the email account
 }
 
 export default function EmailDetailPage() {
   const params = useParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const id = params.id as string;
 
   const [email, setEmail] = useState<Email | null>(null);
@@ -38,6 +41,13 @@ export default function EmailDetailPage() {
 
         const data: Email = await emailRes.json();
         setEmail(data);
+
+        // Update URL with account_id if not already present
+        if (data.email_account_id && !searchParams.get('account_id')) {
+          const newSearchParams = new URLSearchParams(searchParams.toString());
+          newSearchParams.set('account_id', data.email_account_id);
+          router.replace(`/emails/${id}?${newSearchParams.toString()}`, { scroll: false });
+        }
       } catch (err: any) {
         console.error(err);
         setError(err.message || "Failed to fetch email");
@@ -47,7 +57,7 @@ export default function EmailDetailPage() {
     }
 
     fetchEmail();
-  }, [id]);
+  }, [id, router, searchParams]);
 
   if (loading) {
     return (
@@ -66,6 +76,12 @@ export default function EmailDetailPage() {
   }
 
   return (
+    // Left side ----
+    // Left side (webapp/frontend/app/emails/layout.tsx) is wrapping this page 
+    // Left side (Conversation List) was lifted up to the layout.tsx file because I do not want it to be re-rendered on every email detail page load
+    // as that refreshes the conversation list and looses the scroll position
+
+    // Right side ----
     <div className="bg-stone-900 border border-stone-800 p-6 rounded-2xl">
       <h1 className="text-2xl text-white mb-2">{email.subject}</h1>
       <p className="text-sm text-stone-400 mb-1">

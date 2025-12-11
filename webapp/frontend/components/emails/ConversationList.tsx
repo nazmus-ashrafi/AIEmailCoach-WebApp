@@ -21,6 +21,7 @@ interface Props {
     getBadgeColor: (classification?: string) => string;
     cleanEmailPreview: (text: string) => string;
     selectedEmailId?: number;
+    accountId?: string; // Optional account ID to preserve in links
 }
 
 export default function ConversationList({
@@ -28,6 +29,7 @@ export default function ConversationList({
     getBadgeColor,
     cleanEmailPreview,
     selectedEmailId,
+    accountId,
 }: Props) {
     if (!conversations || conversations.length === 0) {
         return <p className="text-gray-400">No conversations found.</p>;
@@ -39,9 +41,14 @@ export default function ConversationList({
                 const isSelected = selectedEmailId &&
                     Number(conversation.most_recent_email_id) === selectedEmailId;
 
+                // Build URL with account_id if available
+                const emailUrl = accountId
+                    ? `/emails/${conversation.most_recent_email_id}?account_id=${accountId}`
+                    : `/emails/${conversation.most_recent_email_id}`;
+
                 return (
                     <Link
-                        href={`/emails/${conversation.most_recent_email_id}`}
+                        href={emailUrl}
                         key={conversation.conversation_id || conversation.most_recent_email_id}
                     >
                         <Card className={`

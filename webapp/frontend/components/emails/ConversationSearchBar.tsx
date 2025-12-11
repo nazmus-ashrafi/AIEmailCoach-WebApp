@@ -11,7 +11,7 @@ interface ConversationSearchBarProps {
 
 export default function ConversationSearchBar({
     onSearchChange,
-    placeholder = "Search conversations...",
+    placeholder = "Search Inbox...",
     className = "",
 }: ConversationSearchBarProps) {
     const [inputValue, setInputValue] = useState("");

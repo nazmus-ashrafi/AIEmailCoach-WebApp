@@ -2238,3 +2238,38 @@ I solved the stale classification data problem by migrating from manual `useEffe
 The key insight is that **server state and client state are fundamentally different**. Server state (data from APIs) should be managed by specialized tools like React Query, while client state (UI toggles, form inputs) can remain in local component state or context. This separation of concerns creates a more maintainable, scalable, and professional codebase. 
 
 Detailed article about the migration to React Query will be added soon.
+
+
+---
+
+## Commit 25 - Account-Specific Email Filtering
+
+<!-- Dec 11, 2025 -->
+
+git commit -m "feat: implement account-specific email filtering and navigation"
+
+```
+feat: implement account-specific email filtering and navigation
+
+Users can now view emails filtered by specific account. Clicking "View Inbox"
+on an account navigates to the first email with account filter applied.
+Conversation sidebar only shows emails from the current account.
+
+Changes:
+- Add auto-redirect to /accounts after login (root page.tsx)
+- Extract email_account_id and add to URL params (emails/[id]/page.tsx)
+- Read account_id from URL and pass to sidebar (emails/layout.tsx)
+- Fetch first conversation and navigate with account_id (account-card.tsx)
+- Preserve account_id in conversation links (ConversationList.tsx)
+- Pass account_id through component chain (ConversationSidebar.tsx)
+
+Benefits:
+- No more mixed emails from multiple accounts
+- Account filter persists across navigation
+- Shareable URLs with account context
+- Clean UX for multi-account users
+
+Fixes: Conversation sidebar showing all accounts instead of filtered view
+```
+
+Solved the multi-account email mixing problem by implementing URL-based account filtering. When users click "View Inbox" on an account, they now navigate to `/emails/{first_email_id}?account_id={account_id}` instead of a conversation list. The email detail page automatically adds the account_id to the URL, which the layout reads and passes to the conversation sidebar. All conversation links preserve the account_id parameter, ensuring the filter persists as users navigate between emails. The backend already supported account filtering, so no API changes were needed - just proper parameter passing through the frontend component chain.

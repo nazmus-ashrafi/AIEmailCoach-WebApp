@@ -76,7 +76,7 @@ function EmailsPageContent() {
       {/* Navigation Bar */}
       <nav className="bg-stone-900 border-b border-stone-800 px-6 py-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white">AI Email Coach</h1>
+          <h1 className="text-2xl font-bold text-white">ProfEmail</h1>
           <UserMenu />
         </div>
       </nav>

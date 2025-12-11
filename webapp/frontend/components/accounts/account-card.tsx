@@ -50,8 +50,35 @@ export function AccountCard({ account, onDelete, onSync }: AccountCardProps) {
         }
     };
 
-    const handleViewInbox = () => {
-        router.push(`/emails?account_id=${account.id}`);
+    const handleViewInbox = async () => {
+        try {
+            // Fetch conversations for this account
+            const response = await fetch(
+                `http://localhost:8000/api/emails/conversations?account_id=${account.id}`,
+                { cache: 'no-store' }
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch conversations');
+            }
+
+            const conversations = await response.json();
+
+            // Check if account has any emails
+            if (!conversations || conversations.length === 0) {
+                alert('This account has no emails yet. Try syncing first.');
+                return;
+            }
+
+            // Get the first conversation's most recent email ID
+            const firstEmailId = conversations[0].most_recent_email_id;
+
+            // Navigate to email detail with account_id parameter
+            router.push(`/emails/${firstEmailId}?account_id=${account.id}`);
+        } catch (error: any) {
+            console.error('Failed to navigate to inbox:', error);
+            alert(error.message || 'Failed to open inbox');
+        }
     };
 
     const getProviderIcon = () => {
