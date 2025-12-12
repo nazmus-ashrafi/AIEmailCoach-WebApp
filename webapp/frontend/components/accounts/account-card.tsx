@@ -12,6 +12,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import type { EmailAccount } from '@/types/email-account';
 import { emailAccountsClient } from '@/utils/email-accounts-client';
+import { useDeleteAccount } from '@/hooks/useDeleteAccount';
 
 interface AccountCardProps {
     account: EmailAccount;
@@ -21,23 +22,25 @@ interface AccountCardProps {
 
 export function AccountCard({ account, onDelete, onSync }: AccountCardProps) {
     const router = useRouter();
-    const [isDeleting, setIsDeleting] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-    const handleDelete = async () => {
-        setIsDeleting(true);
-        try {
-            await emailAccountsClient.deleteAccount(account.id);
-            onDelete();
-        } catch (error: any) {
-            alert(error.message || 'Failed to delete account');
-        } finally {
-            setIsDeleting(false);
-            setShowDeleteConfirm(false);
-        }
+    // React Query mutation for account deletion
+    const deleteAccountMutation = useDeleteAccount();
+    const handleDelete = () => {
+        deleteAccountMutation.mutate(account.id, {
+            onSuccess: () => {
+                setShowDeleteConfirm(false);
+                onDelete(); // Notify parent (though React Query already handles cache invalidation)
+            },
+            onError: (error: Error) => {
+                alert(error.message || 'Failed to delete account');
+                setShowDeleteConfirm(false);
+            },
+        });
     };
 
+    // Ols style sync
     const handleSync = async () => {
         setIsSyncing(true);
         try {
@@ -154,11 +157,11 @@ export function AccountCard({ account, onDelete, onSync }: AccountCardProps) {
                             <div className="flex gap-2">
                                 <Button
                                     onClick={handleDelete}
-                                    disabled={isDeleting}
+                                    disabled={deleteAccountMutation.isPending}
                                     size="sm"
                                     className="bg-red-900 hover:bg-red-800 text-white"
                                 >
-                                    {isDeleting ? 'Deleting...' : 'Confirm'}
+                                    {deleteAccountMutation.isPending ? 'Deleting...' : 'Confirm'}
                                 </Button>
                                 <Button
                                     onClick={() => setShowDeleteConfirm(false)}

@@ -6,47 +6,17 @@
  * Main dashboard for managing connected email accounts.
  */
 
-import { useEffect, useState } from 'react';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { UserMenu } from '@/components/auth/user-menu';
 import { ConnectAccountButton } from '@/components/accounts/connect-account-button';
 import { AccountCard } from '@/components/accounts/account-card';
-import { emailAccountsClient } from '@/utils/email-accounts-client';
-import type { EmailAccount } from '@/types/email-account';
+import { useEmailAccounts } from '@/hooks/useEmailAccounts';
 
 function AccountsPageContent() {
-    const [accounts, setAccounts] = useState<EmailAccount[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    // React Query handles all state management, loading, errors, and refetching automatically
+    const { data: accounts = [], isLoading, error } = useEmailAccounts();
 
-    const fetchAccounts = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const data = await emailAccountsClient.getAccounts();
-            setAccounts(data.accounts);
-        } catch (err: any) {
-            console.error('Failed to fetch accounts:', err);
-            setError(err.message || 'Failed to load email accounts');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchAccounts();
-    }, []);
-
-    const handleAccountDeleted = () => {
-        fetchAccounts(); // Refresh list
-    };
-
-    const handleAccountSynced = () => {
-        // Could show a success message or refresh
-        console.log('Account synced');
-    };
-
-    if (loading) {
+    if (isLoading) {
         return (
             <div className="min-h-screen bg-black">
                 <nav className="bg-stone-900 border-b border-stone-800 px-6 py-4">
@@ -72,7 +42,7 @@ function AccountsPageContent() {
                     </div>
                 </nav>
                 <div className="p-6">
-                    <p className="text-red-400">{error}</p>
+                    <p className="text-red-400">{error?.message || 'Failed to load email accounts'}</p>
                 </div>
             </div>
         );
@@ -130,8 +100,8 @@ function AccountsPageContent() {
                             <AccountCard
                                 key={account.id}
                                 account={account}
-                                onDelete={handleAccountDeleted}
-                                onSync={handleAccountSynced}
+                                onDelete={() => { }} // No-op: React Query auto-invalidates via useDeleteAccount
+                                onSync={() => { }} // No-op: React Query auto-invalidates via useSyncAccount
                             />
                         ))}
                     </div>

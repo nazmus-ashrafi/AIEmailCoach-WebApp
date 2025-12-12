@@ -2308,3 +2308,50 @@ Fixes: Sync button calling deprecated endpoint and not refreshing data
 ```
 
 Fixed the broken sync button in the email detail page layout. The old `SyncOutlookButton` was calling a deprecated endpoint without account context and had an empty callback that didn't refresh the conversation list. Created a new `SyncAccountButton` component that uses React Query mutation pattern with proper cache invalidation. The button reads `accountId` from URL params, calls the correct `/api/emails/sync_outlook/{account_id}` endpoint, and automatically invalidates the conversations cache on success, triggering a re-fetch. Added professional UX touches including loading spinner, success/error messages that auto-dismiss after 5 seconds, and proper handling of edge cases (no account selected, sync in progress, failures). The implementation reuses the existing `emailAccountsClient.syncAccount()` method which already had auth token injection via `apiClient` wrapper.
+
+
+---
+
+## Commit 27 - React Query Account Deletion with Cache Invalidation
+
+<!-- Dec 12, 2025 -->
+
+git commit -m "feat[frontend]: migrate account deletion to React Query with automatic conversation cleanup"
+
+```
+feat[frontend]: migrate account deletion to React Query with automatic conversation cleanup
+
+Solved stale conversation data bug where deleted account's emails remained
+visible. Migrated from manual state management to React Query mutations.
+
+Changes:
+- Create useDeleteAccount mutation hook with cache invalidation
+- Create useEmailAccounts query hook to replace manual state
+- Update AccountCard to use mutation with isPending state
+- Update accounts page to use query hook (removed ~30 lines)
+- Auto-invalidate accounts list and remove conversation caches on delete
+
+Benefits:
+- Deleted account conversations immediately disappear
+- No manual cache management needed
+- Consistent with existing React Query patterns
+- Reduced boilerplate from ~40 lines to ~10 lines
+- Professional mutation pattern with onSuccess/onError callbacks
+
+Fixes: Conversations from deleted accounts still visible after deletion
+```
+
+**Problem:** When users deleted an email account, the account list refreshed correctly but conversations from that account remained cached by React Query. Navigating to emails showed stale data from the deleted account.
+
+**Solution:** Created `useDeleteAccount` mutation hook that automatically invalidates related caches on successful deletion:
+- Invalidates `["accounts"]` to refresh account list
+- Removes `["conversations", accountId]` to purge deleted account's data
+- Invalidates `["conversations", undefined]` to refresh "all accounts" view
+
+**Key Implementation Details:**
+- Used `removeQueries` for deleted account (data shouldn't exist anymore)
+- Used `invalidateQueries` for account list (still exists, just changed)
+- Migrated accounts page from manual `useState`/`useEffect` to `useEmailAccounts` hook
+- Updated `AccountCard` to use `deleteAccountMutation.mutate()` and `isPending` state
+
+**Pattern Established:** Mutations should handle cache invalidation in `onSuccess`, not in parent components. This ensures data consistency across the entire app without manual coordination. I should remove the notifications passed to the parent component.
