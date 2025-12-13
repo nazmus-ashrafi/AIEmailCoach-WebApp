@@ -2312,7 +2312,7 @@ Fixed the broken sync button in the email detail page layout. The old `SyncOutlo
 
 ---
 
-## Commit 27 - React Query Account Deletion with Cache Invalidation
+## Commit 27- React Query Account Deletion with Cache Invalidation
 
 <!-- Dec 12, 2025 -->
 
@@ -2355,3 +2355,73 @@ Fixes: Conversations from deleted accounts still visible after deletion
 - Updated `AccountCard` to use `deleteAccountMutation.mutate()` and `isPending` state
 
 **Pattern Established:** Mutations should handle cache invalidation in `onSuccess`, not in parent components. This ensures data consistency across the entire app without manual coordination. I should remove the notifications passed to the parent component.
+
+
+---
+
+## Commit 28 - Real-Time Streaming Email Classification
+
+<!-- Dec 13, 2025 -->
+
+git commit -m "feat: implement EventSource streaming for real-time AI classification with React Query integration"
+
+```
+feat: implement EventSource streaming for real-time AI classification
+
+Replaced blocking classification with real-time streaming to show AI reasoning
+as it's generated. Users now see typewriter effect for reasoning and drafts.
+
+Backend Changes:
+- Add classify_and_draft_stream() method to EmailClassificationService
+- Stream 6 event types: thinking, reasoning_chunk, classification, draft_start, draft_chunk, complete
+- Use LangChain's astream() for incremental LLM responses
+- Create SSE endpoint /api/emails/classify_email_stream/{email_id}
+
+Frontend Changes:
+- Create ClassifyIsland_Streaming.tsx with EventSource integration
+- Handle streaming events with real-time state updates
+- Add useQueryClient for cache invalidation on completion
+- Display agent working status with event log
+- Show reasoning and draft as they're typed
+
+Benefits:
+- Immediate visual feedback (no 10-second wait)
+- Users see AI "thinking" process
+- Better UX with streaming typewriter effect
+- Automatic conversation badge updates via React Query
+- Professional streaming architecture
+
+Fixes: Blocking UI during classification, stale conversation badges
+```
+
+**Problem:** The original `ClassifyIsland` component used a blocking API call that took 10+ seconds with no feedback. Users had no idea if the system was working or stuck.
+
+**Solution:** Implemented Server-Sent Events (SSE) streaming architecture where the backend yields incremental results and the frontend displays them in real-time.
+
+**Backend Flow:**
+1. `classify_and_draft_stream()` opens async generator
+2. Streams reasoning using `llm.astream()` - yields chunks as they arrive from OpenAI
+3. Makes quick classification decision (non-streaming)
+4. If "respond", streams draft generation chunk-by-chunk
+5. Sends final "complete" event with all data
+
+**Frontend Flow:**
+1. User clicks "Classify Email"
+2. Opens `EventSource` connection to `/api/emails/classify_email_stream/{id}`
+3. Listens for 6 event types: `thinking`, `reasoning_chunk`, `classification`, `draft_start`, `draft_chunk`, `complete`
+4. Appends each `reasoning_chunk` to state → creates typewriter effect
+5. On `complete`, invalidates React Query cache → updates conversation badges
+
+**Key Technical Decisions:**
+- **EventSource over WebSocket:** Simpler for one-way streaming, built-in reconnection
+- **React Query integration:** Added `useQueryClient` to invalidate conversations cache
+- **Cleanup on unmount:** `useEffect` cleanup prevents memory leaks from zombie connections
+- **Fallback handling:** Error event closes connection gracefully
+
+**Files Changed:**
+- `backend/ai/classification_service.py` - Added streaming method
+- `backend/emails/router.py` - Added SSE endpoint
+- `frontend/app/emails/[id]/ClassifyIsland_Streaming.tsx` - New streaming component
+- `frontend/app/emails/[id]/page.tsx` - Switched to streaming version
+
+**Performance Impact:** Perceived performance improved dramatically. Users see first reasoning text in ~2 seconds instead of waiting 10+ seconds for complete response. Total time unchanged, but UX feels instant.

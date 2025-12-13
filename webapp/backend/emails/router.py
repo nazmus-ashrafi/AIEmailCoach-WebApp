@@ -51,6 +51,11 @@ import httpx
 from auth.service import get_current_user
 from auth import schemas
 
+# AI Service imports
+from ai.classification_service import get_classification_service
+from ai.config import AIBackend, AI_BACKEND
+from sse_starlette.sse import EventSourceResponse
+
 router = APIRouter(prefix="/emails", tags=["Emails"])
 
 # 1. When the first time /emails/ is hit:
@@ -336,6 +341,100 @@ async def classify_email(email_id: int, db: Session = Depends(get_db)):
         reasoning=reasoning,
         ai_draft=ai_draft
     )
+
+
+# -----------------------------------------------------------------------------------------------------------------------
+# NEW: STREAMING CLASSIFICATION ENDPOINT , USES LANGCHAIN
+# -----------------------------------------------------------------------------------------------------------------------
+## Creates a Server-Sent Events (SSE) stream that delivers real-time AI processing updates to the frontend
+@router.get("/classify_email_stream/{email_id}")
+async def classify_email_stream(email_id: int, db: Session = Depends(get_db)):
+    """
+    Classify email with streaming events (LangChain implementation).
+    
+    Returns Server-Sent Events (SSE) with real-time progress:
+    - "thinking" events while analyzing
+    - "classification" event with result
+    - "draft_start" when beginning draft generation
+    - "draft_chunk" events as draft is generated
+    - "complete" event with final result
+    
+    This endpoint uses the LangChain service for fast, embedded execution.
+    """
+    # 1. Fetch email
+    email = db.query(Email).filter(Email.id == email_id).first()
+    if not email:
+        raise HTTPException(404, "Email not found")
+    
+    # 2. Check for existing classification (return cached result)
+    existing = db.query(EmailClassification).filter(
+        EmailClassification.email_id == email_id
+    ).first()
+    
+    if existing:
+        # Return cached result as single SSE event
+        ## If classification already exists, returns it immediately as a single SSE event
+        async def cached_result():
+            yield {
+                "event": "complete",
+                "data": json.dumps({
+                    "classification": existing.classification,
+                    "reasoning": existing.reasoning,
+                    "ai_draft": existing.ai_draft,
+                    "cached": True ## The cached: True flag tells the frontend this is a cached result
+                })
+            }
+        return EventSourceResponse(cached_result())
+    
+    # 3. Stream classification using LangChain service
+    service = get_classification_service()
+    
+    async def event_generator():
+        classification_data = {}
+        
+        try:
+            # Stream events from the service
+            ## Iterates over the events yielded by classify_and_draft_stream
+            ## Each iteration receives one event dictionary like {"event": "reasoning_chunk", "data": {"chunk": "I think this email..."}}
+            async for event in service.classify_and_draft_stream(
+                author=email.author,
+                to=email.to,
+                subject=email.subject,
+                email_thread=email.email_thread_text
+            ):
+                # Capture final data
+                if event["event"] == "complete":
+                    classification_data = event["data"]
+                
+                # Format as SSE and yield
+                yield {
+                    "event": event["event"],
+                    "data": json.dumps(event["data"])
+                }
+            
+            # 4. Persist to database
+            if classification_data:
+                new_classification = EmailClassification(
+                    email_id=email.id,
+                    classification=classification_data.get("classification", ""),
+                    reasoning=classification_data.get("reasoning", ""),
+                    ai_draft=classification_data.get("ai_draft")
+                )
+                db.add(new_classification)
+                db.commit()
+                print(f"✅ Stored classification for email {email_id}")
+        
+        except Exception as e:
+            print(f"❌ Classification streaming error: {e}")
+            yield {
+                "event": "error",
+                "data": json.dumps({"error": str(e)})
+            }
+
+    ## EventSourceResponse is from the sse_starlette library 
+    ## It takes an async generator(event_generator()) and converts it to an SSE stream
+    ## The browser (frontend) receives events in real-time as they're yielded
+    return EventSourceResponse(event_generator())
 
 
 # -----------------------------------------------------------------------------------------------------------------------

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import ClassifyIsland from "./ClassifyIsland";
+// import ClassifyIsland from "./ClassifyIsland"; // Original LangGraph blocking version
+import ClassifyIsland from "./ClassifyIsland_Streaming"; // New LangChain streaming version
 import { EmailThreadList } from "@/components/emails/EmailThreadList_v2";
 import { Loader2 } from "lucide-react";
 
@@ -31,7 +32,8 @@ export default function EmailDetailPage() {
   useEffect(() => {
     async function fetchEmail() {
       try {
-        const emailRes = await fetch(`http://localhost:8000/api/emails/${id}`, {
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const emailRes = await fetch(`${API_BASE_URL}/api/emails/${id}`, {
           cache: "no-store",
         });
 
@@ -87,18 +89,20 @@ export default function EmailDetailPage() {
       <p className="text-sm text-stone-400 mb-1">
         <strong className="text-stone-300">From:</strong> {email.author}
       </p>
-      <p className="text-sm text-stone-400 mb-4">
+      <p className="text-sm text-stone-400 mb-6">
         <strong className="text-stone-300">To:</strong> {email.to}
       </p>
-      {/* --- Render Email Thread --- */}
-      <div className="mb-6">
-        <EmailThreadList emailId={email.id} />
-      </div>
+
       {/* --- Interactive "island" for classification / draft --- */}
-      <ClassifyIsland
-        emailId={email.id}
-        initialClassification={email.classification}
-      />
+      <div className="mb-6">
+        <ClassifyIsland
+          emailId={email.id}
+          initialClassification={email.classification}
+        />
+      </div>
+
+      {/* --- Render Email Thread --- */}
+      <EmailThreadList emailId={email.id} />
     </div>
   );
 }

@@ -55,9 +55,10 @@ export function AccountCard({ account, onDelete, onSync }: AccountCardProps) {
 
     const handleViewInbox = async () => {
         try {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
             // Fetch conversations for this account
             const response = await fetch(
-                `http://localhost:8000/api/emails/conversations?account_id=${account.id}`,
+                `${API_BASE_URL}/api/emails/conversations?account_id=${account.id}`,
                 { cache: 'no-store' }
             );
 

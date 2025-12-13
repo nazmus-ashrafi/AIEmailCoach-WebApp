@@ -24,10 +24,11 @@ function EmailsPageContent() {
     setLoading(true);
     setError(null);
 
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     // Build URL with optional account_id parameter
     const url = accountId
-      ? `http://localhost:8000/api/emails/conversations?account_id=${accountId}`
-      : "http://localhost:8000/api/emails/conversations";
+      ? `${API_BASE_URL}/api/emails/conversations?account_id=${accountId}`
+      : `${API_BASE_URL}/api/emails/conversations`;
 
     fetch(url)
       .then((res) => {
@@ -48,10 +49,11 @@ function EmailsPageContent() {
   useEffect(() => {
     async function fetchConversations() {
       try {
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
         // Build URL with optional account_id parameter
         const url = accountId
-          ? `http://localhost:8000/api/emails/conversations?account_id=${accountId}`
-          : "http://localhost:8000/api/emails/conversations";
+          ? `${API_BASE_URL}/api/emails/conversations?account_id=${accountId}`
+          : `${API_BASE_URL}/api/emails/conversations`;
 
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
