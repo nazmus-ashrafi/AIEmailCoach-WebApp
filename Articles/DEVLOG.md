@@ -2425,3 +2425,34 @@ Fixes: Blocking UI during classification, stale conversation badges
 - `frontend/app/emails/[id]/page.tsx` - Switched to streaming version
 
 **Performance Impact:** Perceived performance improved dramatically. Users see first reasoning text in ~2 seconds instead of waiting 10+ seconds for complete response. Total time unchanged, but UX feels instant.
+
+---
+
+## Commit 29 - Documentation and MIT License
+
+<!-- Dec 13, 2025 -->
+
+git commit -m "docs: add comprehensive README and MIT License"
+
+### What I Built
+
+Created professional public-facing documentation for the project including a comprehensive README and MIT License.
+
+### Changes
+
+**README.md:**
+- Project overview with technology badges
+- Complete feature documentation (email management, AI capabilities, UX/DX)
+- Full technology stack breakdown (frontend, backend, infrastructure)
+- Step-by-step installation guide with environment variables
+- Architecture documentation with directory structures
+- Security features overview
+- Roadmap with completed/in-progress/future items
+- Development journey summary referencing DEVLOG.md
+- Contact information and project links
+
+**LICENSE:**
+- Added MIT License file with standard permissions
+- Copyright 2025 Nazmus Ashrafi
+- Permissive open-source license allowing commercial use, modification, and distribution
+
