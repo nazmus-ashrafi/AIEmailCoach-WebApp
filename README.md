@@ -358,3 +358,4 @@ Project Link: [https://github.com/nazmus-ashrafi/AIEmailCoach-WebApp](https://gi
 ---
 
 **Built with ❤️ using Next.js, FastAPI, and LangChain**
+
