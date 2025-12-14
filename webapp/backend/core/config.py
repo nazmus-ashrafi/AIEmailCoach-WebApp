@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     # Microsoft OAuth2 Settings
     MICROSOFT_CLIENT_ID: str = os.getenv("APPLICATION_ID")
     MICROSOFT_CLIENT_SECRET: str = os.getenv("CLIENT_SECRET")
-    MICROSOFT_REDIRECT_URI: str = os.getenv("REDIRECT_URI", "http://localhost:8000/api/email_accounts/oauth/callback")
+    MICROSOFT_REDIRECT_URI: str = os.getenv("REDIRECT_URI", "http://localhost:8000/api/email-accounts/oauth/callback")
     MICROSOFT_TENANT_ID: str = os.getenv("TENANT_ID", "consumers")
     # Note: offline_access is automatically added by MSAL, don't include it explicitly
     MICROSOFT_SCOPES: List[str] = ["User.Read", "Mail.ReadWrite", "Mail.Send"]
