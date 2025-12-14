@@ -26,7 +26,7 @@ from core.config import settings
 
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/email_accounts", tags=["Email Accounts"])
+router = APIRouter(prefix="/email-accounts", tags=["Email Accounts"])
 
 
 # ============================================================================
