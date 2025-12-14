@@ -4,8 +4,12 @@ from sqlalchemy.ext.declarative import declarative_base
 
 from core.config import settings
 
+print("🔍 [DATABASE] Starting database configuration...")
+
 # Get database URL from settings
 DATABASE_URL = settings.DATABASE_URL
+print(f"🔍 [DATABASE] DATABASE_URL type: {type(DATABASE_URL)}")
+print(f"🔍 [DATABASE] DATABASE_URL value: {DATABASE_URL[:50] if DATABASE_URL else 'None'}...")
 
 # IMPORTANT: Render provides DATABASE_URL with postgres:// prefix
 # but SQLAlchemy requires postgresql:// prefix
@@ -17,11 +21,13 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
 # Create engine with appropriate settings
 # SQLite needs check_same_thread=False for FastAPI
 # PostgreSQL doesn't need this parameter
+print("🔍 [DATABASE] Creating SQLAlchemy engine...")
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False} if DATABASE_URL and "sqlite" in DATABASE_URL else {},
     echo=False  # Set to True to see SQL queries (useful for debugging)
 )
+print("✅ [DATABASE] Engine created successfully")
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
