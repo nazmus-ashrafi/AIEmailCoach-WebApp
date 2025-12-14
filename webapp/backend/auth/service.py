@@ -29,8 +29,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def get_password_hash(password: str) -> str:
-    """Hash a plain password"""
-    return bcrypt_context.hash(password)
+    """Hash a plain password (truncated to 72 bytes for bcrypt compatibility)"""
+    # Bcrypt has a 72-byte password limit, truncate if necessary
+    password_bytes = password.encode('utf-8')[:72]
+    return bcrypt_context.hash(password_bytes.decode('utf-8', errors='ignore'))
 
 
 def authenticate_user(email: str, password: str, db: Session) -> User | bool:
