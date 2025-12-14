@@ -20,17 +20,10 @@ import json
 from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
-import sys
-# Add the project root to Python path only if src is not already importable
-try:
-    import src
-except ImportError:
-    project_root = os.getenv('PROJECT_ROOT')
-    if project_root and project_root not in sys.path:
-        sys.path.insert(0, project_root)
 
-from src.ai_email_coach.state import State
-from src.ai_email_coach.graph import graph  # LangGraph graph
+# Removed unused LangGraph imports - using LangChain streaming service instead
+# from src.ai_email_coach.state import State
+# from src.ai_email_coach.graph import graph
 
 
 
@@ -272,75 +265,15 @@ def get_email_thread(email_id: int, db: Session = Depends(get_db)):
 
 
 # -----------------------------------------------------------------------------------------------------------------------
+# DEPRECATED: Old blocking classification endpoint using LangGraph
+# Replaced by /classify_email_stream which uses LangChain streaming service
 # -----------------------------------------------------------------------------------------------------------------------
 
-
-
-@router.post("/classify_email", response_model=EmailClassificationResponse)
-async def classify_email(email_id: int, db: Session = Depends(get_db)):
-    # 1️. Fetch the email from the database
-    email = db.query(Email).filter(Email.id == email_id).first()
-    if not email:
-        raise HTTPException(status_code=404, detail="Email not found")
-    
-    # 2️. Check if this email already has a classification (avoid duplicates)
-    existing_classification = (
-        db.query(EmailClassification)
-        .filter(EmailClassification.email_id == email_id)
-        .first()
-    )
-    if existing_classification:
-        ## idempotent (it doesn’t recompute if a classification already exists)
-        print("Found old classification, returning it")
-        return EmailClassificationResponse(
-            email_id=email.id,
-            classification=existing_classification.classification,
-            reasoning=existing_classification.reasoning,
-            ai_draft=existing_classification.ai_draft
-        )
-
-    # 3️. Build initial state for LangGraph
-    state_input = State(email_input={
-        "author": email.author,
-        "to": email.to,
-        "subject": email.subject,
-        # "email_thread": email.email_thread
-        "email_thread": email.email_thread_text
-    })
-
-    # 4️. Call the LLM graph
-    try:
-        result = await graph.ainvoke(state_input, config={})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Classification failed: {str(e)}")
-
-    # 5️. Extract classification and reasoning from graph result
-    classification = result.get("classification_decision", "")
-    reasoning = result.get("reasoning", "")
-    ai_draft = result.get("ai_draft", "")
-
-
-    # 6. Persist the classification result
-    new_classification = EmailClassification(
-        email_id=email.id,
-        classification=classification,
-        reasoning=reasoning,
-        ai_draft=ai_draft
-    )
-    db.add(new_classification)
-    db.commit()
-    db.refresh(new_classification)
-    print("Stored newly classified email, with reasoning and ai draft")
-
-
-    ## Returning classification_decision and reasoning, in memory as JSON
-    ## Without loading these results in the table (see 6), the system recomputes the result and loses the previous output after the request ends
-    return EmailClassificationResponse(
-        email_id=email.id,
-        classification=classification,
-        reasoning=reasoning,
-        ai_draft=ai_draft
-    )
+# @router.post("/classify_email", response_model=EmailClassificationResponse)
+# async def classify_email(email_id: int, db: Session = Depends(get_db)):
+#     # This endpoint used the LangGraph implementation from src/
+#     # Now using the streaming LangChain service in /classify_email_stream
+#     pass
 
 
 # -----------------------------------------------------------------------------------------------------------------------
@@ -441,82 +374,16 @@ async def classify_email_stream(email_id: int, db: Session = Depends(get_db)):
 # -----------------------------------------------------------------------------------------------------------------------
 
 
-@router.post("/{email_id}/generate_draft", response_model=EmailClassificationResponse)
-async def generate_draft(
-    email_id: int,
-    force: bool = Query(False, description="Force regenerate the AI draft even if it exists"),
-    db: Session = Depends(get_db)
-):
-    """
-    Generate an AI draft for the given email.
-    - If a draft already exists (and force=False), return it immediately.
-    - If force=True, re-invoke the LangGraph and update the stored draft.
-    """
+# -----------------------------------------------------------------------------------------------------------------------
+# DEPRECATED: Old draft generation endpoint using LangGraph  
+# Draft generation is now included in /classify_email_stream
+# -----------------------------------------------------------------------------------------------------------------------
 
-    # 1. Fetch email from DB
-    email = db.query(Email).filter(Email.id == email_id).first()
-    if not email:
-        raise HTTPException(status_code=404, detail="Email not found")
-
-    # 2. Check if a classification already exists
-    existing_classification = (
-        db.query(EmailClassification)
-        .filter(EmailClassification.email_id == email_id)
-        .first()
-    )
-
-    # 3. If draft already exists and not forcing regeneration, return it
-    if existing_classification and existing_classification.ai_draft and not force:
-        print("Existing draft found, returning cached draft.")
-        return EmailClassificationResponse(
-            email_id=email.id,
-            classification=existing_classification.classification,
-            reasoning=existing_classification.reasoning,
-            ai_draft=existing_classification.ai_draft
-        )
-
-    # 4. Build initial LangGraph state
-    state_input = State(email_input={
-        "author": email.author,
-        "to": email.to,
-        "subject": email.subject,
-        "email_thread": email.email_thread
-    })
-
-    # 5. Call the LLM graph to generate a draft (and classification if needed)
-    try:
-        result = await graph.ainvoke(state_input, config={})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Draft generation failed: {str(e)}")
-
-    # 6. Extract outputs
-    classification = result.get("classification_decision", "")
-    reasoning = result.get("reasoning", "")
-    ai_draft = result.get("ai_draft", "")
-
-    # 7. Update or create classification record
-    if existing_classification:
-        existing_classification.classification = classification or existing_classification.classification
-        existing_classification.reasoning = reasoning or existing_classification.reasoning
-        existing_classification.ai_draft = ai_draft
-    else:
-        new_classification = EmailClassification(
-            email_id=email.id,
-            classification=classification,
-            reasoning=reasoning,
-            ai_draft=ai_draft,
-        )
-        db.add(new_classification)
-
-    db.commit()
-
-    # 8. Return the response
-    return EmailClassificationResponse(
-        email_id=email.id,
-        classification=classification,
-        reasoning=reasoning,
-        ai_draft=ai_draft,
-    )
+# @router.post("/{email_id}/generate_draft", response_model=EmailClassificationResponse)
+# async def generate_draft(email_id: int, force: bool = Query(False), db: Session = Depends(get_db)):
+#     # This endpoint used the LangGraph implementation from src/
+#     # Now using the streaming LangChain service which includes draft generation
+#     pass
 
 
 # -----------------------------------------------------------------------------------------------------------------------
