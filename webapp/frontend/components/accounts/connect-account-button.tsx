@@ -20,7 +20,7 @@ export function ConnectAccountButton() {
         }
         // Redirect to backend "OAuth authorize endpoint" with token (token is send in the URL)
         const oauthUrl = `${emailAccountsClient.getOAuthUrl()}?token=${encodeURIComponent(token)}`;
-        // Triggers the Backend Route `/api/email_accounts/oauth/authorize`
+        // Triggers the Backend Route `/api/email-accounts/oauth/authorize`
         window.location.href = oauthUrl;
     };
 

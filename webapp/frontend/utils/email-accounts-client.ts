@@ -14,7 +14,7 @@ export const emailAccountsClient = {
      * Get all email accounts for the current user
      */
     getAccounts: async (): Promise<EmailAccountList> => {
-        return apiClient<EmailAccountList>('/api/email_accounts/', {
+        return apiClient<EmailAccountList>('/api/email-accounts/', {
             requiresAuth: true,
         });
     },
@@ -23,7 +23,7 @@ export const emailAccountsClient = {
      * Delete an email account
      */
     deleteAccount: async (accountId: string): Promise<{ message: string }> => {
-        return apiClient<{ message: string }>(`/api/email_accounts/${accountId}`, {
+        return apiClient<{ message: string }>(`/api/email-accounts/${accountId}`, {
             method: 'DELETE',
             requiresAuth: true,
         });
@@ -44,6 +44,6 @@ export const emailAccountsClient = {
      * This redirects to backend which then redirects to Microsoft
      */
     getOAuthUrl: (): string => {
-        return `${API_BASE_URL}/api/email_accounts/oauth/authorize`;
+        return `${API_BASE_URL}/api/email-accounts/oauth/authorize`;
     },
 };
