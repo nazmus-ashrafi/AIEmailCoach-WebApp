@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str = None
     # DATABASE_URL: Optional[str] = None
 
+    # CORS: Comma-separated list of allowed origins
+    # Development: "http://localhost:3000"
+    # Production: "http://localhost:3000,https://your-app.vercel.app"
     ALLOWED_ORIGINS: str = ""
 
     OPENAI_API_KEY: str

@@ -2456,3 +2456,63 @@ Created professional public-facing documentation for the project including a com
 - Copyright 2025 Nazmus Ashrafi
 - Permissive open-source license allowing commercial use, modification, and distribution
 
+---
+
+## Commit 30 - Production Deployment Preparation
+
+<!-- Dec 14, 2025 -->
+
+git commit -m "chore: prepare backend for production deployment"
+
+### What I Built
+
+Prepared the backend codebase for production deployment to Render with PostgreSQL database support.
+
+### Changes
+
+**CORS Configuration (`core/config.py`):**
+- Added documentation for `ALLOWED_ORIGINS` environment variable
+- Supports comma-separated list of origins (localhost + production URL)
+- Enables both development and production environments
+
+**Database Configuration (`db/database.py`):**
+- Added PostgreSQL support alongside SQLite
+- Automatic URL conversion: `postgres://` → `postgresql://` (Render compatibility)
+- Conditional `connect_args` for SQLite vs PostgreSQL
+- Enhanced logging for database connection status
+- Improved docstrings explaining production vs development usage
+
+**Production Dependencies (`requirements.txt`):**
+- Created comprehensive requirements file for Render deployment
+- Organized by category (Framework, Database, Auth, AI, etc.)
+- Key additions:
+  - `psycopg2-binary` for PostgreSQL connectivity
+  - `langchain` and `langchain-openai` for AI features
+  - `msal` for Microsoft OAuth2
+  - All authentication and security packages
+- Version-pinned for consistent deployments
+- Excludes LangGraph dependencies (using lightweight LangChain service)
+
+### Technical Details
+
+**Database URL Handling:**
+- Render provides: `postgres://user:pass@host:port/db`
+- SQLAlchemy requires: `postgresql://user:pass@host:port/db`
+- Automatic conversion ensures compatibility without manual intervention
+
+**Environment Variable Strategy:**
+- Development: `ALLOWED_ORIGINS=http://localhost:3000`
+- Production: `ALLOWED_ORIGINS=http://localhost:3000,https://your-app.vercel.app`
+- Single codebase works in both environments
+
+### Files Modified
+- `webapp/backend/core/config.py` - CORS documentation
+- `webapp/backend/db/database.py` - PostgreSQL support
+- `webapp/backend/requirements.txt` - Production dependencies (new)
+
+### Next Steps
+- Deploy backend to Render
+- Deploy frontend to Vercel
+- Configure production environment variables
+- Update Azure OAuth redirect URIs
+
