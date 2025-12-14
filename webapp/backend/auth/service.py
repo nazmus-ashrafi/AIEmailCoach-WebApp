@@ -6,7 +6,7 @@ from datetime import timedelta, datetime, timezone
 from typing import Annotated
 from uuid import UUID, uuid4
 from fastapi import Depends
-from passlib.context import CryptContext
+import bcrypt
 import jwt
 from jwt import PyJWTError
 from sqlalchemy.orm import Session
@@ -19,20 +19,19 @@ from core.config import settings
 import logging
 
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl='api/auth/token')
-## Database passwords are stores as bcript hash
-bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plain password against a hashed password"""
-    return bcrypt_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 
 def get_password_hash(password: str) -> str:
-    """Hash a plain password (truncated to 72 bytes for bcrypt compatibility)"""
-    # Bcrypt has a 72-byte password limit, truncate if necessary
-    password_bytes = password.encode('utf-8')[:72]
-    return bcrypt_context.hash(password_bytes.decode('utf-8', errors='ignore'))
+    """Hash a plain password using bcrypt"""
+    # bcrypt automatically handles the 72-byte limit
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')
 
 
 def authenticate_user(email: str, password: str, db: Session) -> User | bool:

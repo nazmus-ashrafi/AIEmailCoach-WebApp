@@ -19,7 +19,7 @@ pydantic-settings==2.5.2
 email-validator==2.2.0
 
 # ===== Authentication & Security =====
-passlib[bcrypt]==1.7.4  # Password hashing
+bcrypt==4.2.1  # Password hashing
 PyJWT==2.9.0  # JWT tokens
 cryptography==43.0.1  # Token encryption (Fernet)
 
