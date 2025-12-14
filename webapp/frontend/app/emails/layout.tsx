@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import ConversationSearchBar from "@/components/emails/ConversationSearchBar";
@@ -11,7 +11,7 @@ import { SyncAccountButton } from "@/components/ui/SyncAccountButton";
 
 
 
-export default function EmailsLayout({
+function EmailsLayoutContent({
     children,
 }: {
     children: React.ReactNode;
@@ -88,5 +88,17 @@ export default function EmailsLayout({
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function EmailsLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    return (
+        <Suspense fallback={<>{children}</>}>
+            <EmailsLayoutContent>{children}</EmailsLayoutContent>
+        </Suspense>
     );
 }

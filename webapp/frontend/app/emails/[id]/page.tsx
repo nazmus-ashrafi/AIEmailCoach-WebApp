@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 // import ClassifyIsland from "./ClassifyIsland"; // Original LangGraph blocking version
 import ClassifyIsland from "./ClassifyIsland_Streaming"; // New LangChain streaming version
@@ -19,7 +19,7 @@ interface Email {
   email_account_id?: string; // UUID of the email account
 }
 
-export default function EmailDetailPage() {
+function EmailDetailPageContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -104,5 +104,17 @@ export default function EmailDetailPage() {
       {/* --- Render Email Thread --- */}
       <EmailThreadList emailId={email.id} />
     </div>
+  );
+}
+
+export default function EmailDetailPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-stone-400" />
+      </div>
+    }>
+      <EmailDetailPageContent />
+    </Suspense>
   );
 }

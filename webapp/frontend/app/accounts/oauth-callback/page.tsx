@@ -7,11 +7,11 @@
  * Shows success/error messages and redirects to accounts page.
  */
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 
-export default function OAuthCallbackPage() {
+function OAuthCallbackContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [message, setMessage] = useState('Processing...');
@@ -117,5 +117,17 @@ export default function OAuthCallbackPage() {
                 </CardContent>
             </Card>
         </div>
+    );
+}
+
+export default function OAuthCallbackPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <div className="text-stone-400">Loading...</div>
+            </div>
+        }>
+            <OAuthCallbackContent />
+        </Suspense>
     );
 }

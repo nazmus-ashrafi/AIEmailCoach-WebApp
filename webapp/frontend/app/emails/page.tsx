@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -115,7 +115,11 @@ function EmailsPageContent() {
 export default function EmailsPage() {
   return (
     <ProtectedRoute>
-      <EmailsPageContent />
+      <Suspense fallback={
+        <div className="p-6 text-stone-400">Loading...</div>
+      }>
+        <EmailsPageContent />
+      </Suspense>
     </ProtectedRoute>
   );
 }
