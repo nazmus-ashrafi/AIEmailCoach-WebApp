@@ -5,6 +5,8 @@
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 python-multipart==0.0.12
+python-dateutil==2.9.0  # Date parsing for email timestamps
+sse-starlette==2.2.1  # Server-Sent Events for streaming
 
 # ===== Database =====
 sqlalchemy==2.0.35
