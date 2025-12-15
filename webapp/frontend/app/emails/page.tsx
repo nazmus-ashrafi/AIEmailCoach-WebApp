@@ -1,76 +1,36 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import SyncOutlookButton from "@/components/ui/SyncOutlookButton";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { UserMenu } from "@/components/auth/user-menu";
-import ConversationList, { Conversation } from "@/components/emails/ConversationList";
+import ConversationList from "@/components/emails/ConversationList";
 import { cleanEmailPreview, getBadgeColor } from "@/utils/email-utils";
+import { useConversations } from "@/hooks/useConversations";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/components/auth/auth-context";
 
 
 function EmailsPageContent() {
   const searchParams = useSearchParams();
-  const accountId = searchParams.get('account_id');
+  const accountId = searchParams.get('account_id') || undefined;
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
 
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Use React Query hook instead of manual fetch
+  const { data: conversations = [], isLoading: loading, error } = useConversations(accountId);
 
   function refreshAfterSync() {
-    setLoading(true);
-    setError(null);
-
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    // Build URL with optional account_id parameter
-    const url = accountId
-      ? `${API_BASE_URL}/api/emails/conversations?account_id=${accountId}`
-      : `${API_BASE_URL}/api/emails/conversations`;
-
-    fetch(url)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to refresh after sync");
-        return res.json();
-      })
-      .then((data) => {
-        setConversations(Array.isArray(data) ? data : []);
-      })
-      .catch(() => {
-        setError("Failed to refresh conversations after sync.");
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    // Invalidate and refetch conversations using React Query
+    queryClient.invalidateQueries({
+      queryKey: ["conversations", accountId, user?.id]
+    });
   }
 
-  useEffect(() => {
-    async function fetchConversations() {
-      try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        // Build URL with optional account_id parameter
-        const url = accountId
-          ? `${API_BASE_URL}/api/emails/conversations?account_id=${accountId}`
-          : `${API_BASE_URL}/api/emails/conversations`;
-
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
-        const data = await res.json();
-        setConversations(Array.isArray(data) ? data : []);
-      } catch (err: any) {
-        console.error(err);
-        setError("Failed to fetch conversations.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchConversations();
-  }, [accountId]); // Re-fetch when accountId changes
-
   if (loading) return <p className="p-6 text-stone-400">Loading conversations...</p>;
-  if (error) return <p className="p-6 text-red-400">{error}</p>;
+  if (error) return <p className="p-6 text-red-400">Failed to fetch conversations.</p>;
 
 
   return (
@@ -100,7 +60,7 @@ function EmailsPageContent() {
         </div>
 
         {/* Sync Button */}
-        <SyncOutlookButton onFinished={refreshAfterSync} />
+        {/* <SyncOutlookButton onFinished={refreshAfterSync} /> */}
 
         <ConversationList
           conversations={conversations}

@@ -15,11 +15,11 @@ export function useDeleteAccount() {
             emailAccountsClient.deleteAccount(accountId),
 
         onSuccess: (data, deletedAccountId) => {
-            // 1. Invalidate the accounts list
-            // Invalidate means that cache labeled ['accounts'] is now STALE. 
+            // 1. Invalidate the accounts list for all users (uses wildcard to match any user ID)
+            // Invalidate means that cache labeled ['accounts', userId] is now STALE. 
             // RQ will throw it away and automatically re-fetch fresh data from the backend ✨
             queryClient.invalidateQueries({
-                queryKey: ["accounts"]
+                queryKey: ["accounts"] // This will match ["accounts", userId] for any userId
             });
 
             // 2. Invalidate ALL conversations for the deleted account

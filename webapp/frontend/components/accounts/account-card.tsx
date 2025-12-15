@@ -55,18 +55,9 @@ export function AccountCard({ account, onDelete, onSync }: AccountCardProps) {
 
     const handleViewInbox = async () => {
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-            // Fetch conversations for this account
-            const response = await fetch(
-                `${API_BASE_URL}/api/emails/conversations?account_id=${account.id}`,
-                { cache: 'no-store' }
-            );
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch conversations');
-            }
-
-            const conversations = await response.json();
+            // Use authenticated API client instead of plain fetch
+            const { fetchConversations } = await import('@/utils/conversations-api');
+            const conversations = await fetchConversations(account.id);
 
             // Check if account has any emails
             if (!conversations || conversations.length === 0) {

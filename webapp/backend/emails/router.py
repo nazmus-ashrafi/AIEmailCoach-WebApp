@@ -41,7 +41,7 @@ import httpx
 
 
 # Auth imports
-from auth.service import get_current_user
+from auth.service import get_current_user, CurrentUser
 from auth import schemas
 
 # AI Service imports
@@ -58,48 +58,43 @@ router = APIRouter(prefix="/emails", tags=["Emails"])
 # 3. Subsequent calls just query the database.
 @router.get("/", response_model=list[EmailResponse])
 def list_emails(
-    account_id: str = Query(None, description="Optional email account ID to filter by"), ## App Registered user's account ID.
+    current_user: CurrentUser,
+    account_id: str = Query(None, description="Optional email account ID to filter by"),
     db: Session = Depends(get_db)
 ):
     """
-    List emails, optionally filtered by account.
+    List emails for the current user, optionally filtered by account.
     
     Args:
+        current_user: Authenticated user (from JWT)
         account_id: Optional UUID of email account to filter by
         db: Database session
         
     Returns:
-        List of emails (all emails if no account_id, or filtered by account)
+        List of emails belonging to the current user's accounts
     """
     from uuid import UUID
+    from entities.email_account import EmailAccount
     
-    # Start with base query
-    query = db.query(Email)
+    # Start with base query - JOIN with EmailAccount to filter by user
+    query = db.query(Email).join(
+        EmailAccount,
+        Email.email_account_id == EmailAccount.id
+    ).filter(
+        EmailAccount.user_id == current_user.get_uuid()
+    )
     
     # Apply account filter if provided
     if account_id:
         try:
             account_uuid = UUID(account_id)
+            # Verify account belongs to user (implicit via join + user filter)
             query = query.filter(Email.email_account_id == account_uuid)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid account_id format")
     
     # Order by created_at descending (newest first)
     emails = query.order_by(Email.created_at.desc()).all()
-
-    ## Fetch from Mock Emails -- DEPRECATED
-    # if not emails:
-    #     # Populate the table with mock emails
-    #     for item in MOCK_EMAILS:
-    #         email = Email(
-    #             author=item["author"],
-    #             to=item["to"],
-    #             subject=item["subject"],
-    #             email_thread=item["email_thread"]
-    #         )
-    #         db.add(email)
-    #     db.commit()
-    #     emails = db.query(Email).all()
 
     return emails
 
@@ -110,16 +105,18 @@ def list_emails(
 
 @router.get("/conversations", response_model=list[ConversationGroupResponse])
 def list_conversations(
+    current_user: CurrentUser,
     account_id: str = Query(None, description="Optional email account ID to filter by"),
     db: Session = Depends(get_db)
 ):
     """
-    List emails grouped by conversation_id.
+    List emails grouped by conversation_id for the current user.
     
     Groups emails by their conversation_id and returns aggregated metadata for each conversation.
     Emails without a conversation_id are treated as individual conversations.
     
     Args:
+        current_user: Authenticated user (from JWT)
         account_id: Optional UUID of email account to filter by
         db: Database session
         
@@ -128,19 +125,26 @@ def list_conversations(
     """
     from uuid import UUID
     from collections import defaultdict
+    from entities.email_account import EmailAccount
     
-    # Start with base query
-    query = db.query(Email)
+    # Start with base query - JOIN with EmailAccount to filter by user
+    query = db.query(Email).join(
+        EmailAccount,
+        Email.email_account_id == EmailAccount.id
+    ).filter(
+        EmailAccount.user_id == current_user.get_uuid()
+    )
     
     # Apply account filter if provided
     if account_id:
         try:
             account_uuid = UUID(account_id)
+            # Verify account belongs to user (implicit via join + user filter)
             query = query.filter(Email.email_account_id == account_uuid)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid account_id format")
     
-    # Get all emails
+    # Get all emails (now filtered by user)
     emails = query.all()
     
     # Group emails by conversation_id
@@ -224,30 +228,72 @@ def list_conversations(
 #     return email
 
 @router.get("/{email_id}", response_model=EmailResponse)
-def get_email(email_id: int, db: Session = Depends(get_db)):
-    email = db.query(Email).filter(Email.id == email_id).first()
+def get_email(
+    email_id: int,
+    current_user: CurrentUser,
+    db: Session = Depends(get_db)
+):
+    """
+    Get a specific email by ID.
+    
+    Verifies that the email belongs to one of the current user's accounts.
+    
+    Args:
+        email_id: ID of the email to retrieve
+        current_user: Authenticated user (from JWT)
+        db: Database session
+        
+    Returns:
+        Email details
+    """
+    from entities.email_account import EmailAccount
+    
+    # Query email with JOIN to verify ownership
+    email = db.query(Email).join(
+        EmailAccount,
+        Email.email_account_id == EmailAccount.id
+    ).filter(
+        Email.id == email_id,
+        EmailAccount.user_id == current_user.get_uuid()
+    ).first()
+    
     if not email:
         raise HTTPException(status_code=404, detail="Email not found")
     return email
 
 
 @router.get("/{email_id}/thread", response_model=list[EmailResponse])
-def get_email_thread(email_id: int, db: Session = Depends(get_db)):
+def get_email_thread(
+    email_id: int,
+    current_user: CurrentUser,
+    db: Session = Depends(get_db)
+):
     """
-    Get all emails in the same conversation thread.
+    Get all emails in the same conversation thread for the current user.
     
     Returns emails ordered by received_at ascending (oldest first) for chronological reading.
     If the email has no conversation_id, returns only that single email.
+    Verifies that the email belongs to one of the current user's accounts.
     
     Args:
         email_id: ID of the email to get the thread for
+        current_user: Authenticated user (from JWT)
         db: Database session
         
     Returns:
         List of emails in the conversation thread
     """
-    # 1. Get the email from DB
-    email = db.query(Email).filter(Email.id == email_id).first()
+    from entities.email_account import EmailAccount
+    
+    # 1. Get the email from DB and verify ownership
+    email = db.query(Email).join(
+        EmailAccount,
+        Email.email_account_id == EmailAccount.id
+    ).filter(
+        Email.id == email_id,
+        EmailAccount.user_id == current_user.get_uuid()
+    ).first()
+    
     if not email:
         raise HTTPException(status_code=404, detail="Email not found")
     
@@ -255,11 +301,14 @@ def get_email_thread(email_id: int, db: Session = Depends(get_db)):
     if not email.conversation_id:
         return [email]
     
-    # 3. Fetch all messages with same conversation_id
-    thread_messages = db.query(Email)\
-        .filter(Email.conversation_id == email.conversation_id)\
-        .order_by(Email.received_at.asc())\
-        .all()
+    # 3. Fetch all messages with same conversation_id (filtered by user)
+    thread_messages = db.query(Email).join(
+        EmailAccount,
+        Email.email_account_id == EmailAccount.id
+    ).filter(
+        Email.conversation_id == email.conversation_id,
+        EmailAccount.user_id == current_user.get_uuid()
+    ).order_by(Email.received_at.asc()).all()
     
     return thread_messages
 

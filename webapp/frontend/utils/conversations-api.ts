@@ -3,33 +3,22 @@
  */
 
 import { Conversation } from "@/types/api";
+import { apiClient } from "./api-client";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export async function fetchConversations(accountId?: string): Promise<Conversation[]> {
-    const url = accountId
-        ? `${API_BASE_URL}/api/emails/conversations?account_id=${accountId}`
-        : `${API_BASE_URL}/api/emails/conversations`;
+    const endpoint = accountId
+        ? `/api/emails/conversations?account_id=${accountId}`
+        : `/api/emails/conversations`;
 
-    const response = await fetch(url, { cache: "no-store" });
-
-    if (!response.ok) {
-        throw new Error(`Failed to fetch conversations: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return Array.isArray(data) ? data : [];
+    return apiClient<Conversation[]>(endpoint, {
+        requiresAuth: true,
+    });
 }
 
 export async function fetchConversation(emailId: number): Promise<Conversation> {
-    const response = await fetch(
-        `${API_BASE_URL}/api/emails/${emailId}`,
-        { cache: "no-store" }
-    );
-
-    if (!response.ok) {
-        throw new Error(`Failed to fetch conversation: ${response.status}`);
-    }
-
-    return response.json();
+    return apiClient<Conversation>(`/api/emails/${emailId}`, {
+        requiresAuth: true,
+    });
 }

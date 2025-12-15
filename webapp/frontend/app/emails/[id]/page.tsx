@@ -32,16 +32,12 @@ function EmailDetailPageContent() {
   useEffect(() => {
     async function fetchEmail() {
       try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        const emailRes = await fetch(`${API_BASE_URL}/api/emails/${id}`, {
-          cache: "no-store",
+        // Use authenticated API client instead of plain fetch
+        const { apiClient } = await import('@/utils/api-client');
+        const data: Email = await apiClient<Email>(`/api/emails/${id}`, {
+          requiresAuth: true,
         });
 
-        if (!emailRes.ok) {
-          throw new Error("Email not found");
-        }
-
-        const data: Email = await emailRes.json();
         setEmail(data);
 
         // Update URL with account_id if not already present

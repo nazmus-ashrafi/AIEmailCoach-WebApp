@@ -2516,3 +2516,64 @@ Prepared the backend codebase for production deployment to Render with PostgreSQ
 - Configure production environment variables
 - Update Azure OAuth redirect URIs
 
+---
+
+## Commit 31 to 51 
+
+Deployed to Render and Vercel.
+
+---
+
+## Commit 52 - Security Fix: Email Filtering Authentication
+
+<!-- Dec 15, 2025 -->
+
+git commit -m "fix[security]: add authentication to email endpoints and fix React Query cache isolation"
+
+```
+fix[security]: add authentication to email endpoints and fix React Query cache isolation
+
+Fixed critical security vulnerabilities where users could access other users' emails.
+Added authentication to all email endpoints and user-specific cache keys.
+
+Backend Changes:
+- Add CurrentUser dependency to 4 email endpoints (/, /conversations, /{id}, /{id}/thread)
+- Join EmailAccount table to filter emails by user ownership
+- Verify account ownership implicitly through user filter
+
+Frontend Changes:
+- Add user ID to React Query cache keys (useEmailAccounts, useConversations)
+- Migrate conversations-api to use authenticated apiClient
+- Migrate /emails page from fetch to React Query
+- Fix account-card, email detail page, and EmailThreadList to use authenticated API
+
+Security Impact:
+- Before: Any user could view all emails from all accounts
+- After: Users only see emails from their own accounts
+- Cache isolated per user (prevents data leakage)
+
+Files: emails/router.py, useEmailAccounts.ts, useConversations.ts, 
+conversations-api.ts, page.tsx (emails), page.tsx (email detail),
+account-card.tsx, EmailThreadList_v2.tsx
+```
+
+### Problem
+
+Discovered two critical security bugs:
+1. **Missing Authentication**: `/api/emails/conversations` endpoint had no authentication - anyone could access all emails
+2. **Missing Authorization**: No verification that requested emails belonged to the authenticated user
+3. **Cache Sharing**: React Query hooks used static cache keys without user IDs, causing User B to see User A's cached data
+
+### Solution
+
+**Backend**: Added `current_user: CurrentUser` parameter to all email endpoints and joined `EmailAccount` table to filter by `user_id`. This ensures emails are only returned if they belong to the authenticated user's accounts.
+
+**Frontend**: Updated all React Query hooks to include `user?.id` in cache keys (e.g., `["conversations", accountId, user?.id]`). Migrated all plain `fetch` calls to use authenticated `apiClient` which automatically injects JWT tokens.
+
+### Impact
+
+- ✅ All email endpoints now require authentication (401 without token)
+- ✅ Emails filtered by user ownership via JOIN with EmailAccount
+- ✅ Cache isolated per user with user ID in query keys
+- ✅ Automatic token injection in all API calls
+

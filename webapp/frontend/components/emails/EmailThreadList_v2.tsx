@@ -69,14 +69,12 @@ export function EmailThreadList({ emailId }: EmailThreadListProps) {
             setError(null);
 
             try {
-                const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-                const response = await fetch(`${API_BASE_URL}/api/emails/${emailId}/thread`);
+                // Use authenticated API client instead of plain fetch
+                const { apiClient } = await import('@/utils/api-client');
+                const data = await apiClient<Email[]>(`/api/emails/${emailId}/thread`, {
+                    requiresAuth: true,
+                });
 
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch thread: ${response.statusText}`);
-                }
-
-                const data = await response.json();
                 setThread(data);
             } catch (err) {
                 setError(err instanceof Error ? err.message : "Failed to load thread");
