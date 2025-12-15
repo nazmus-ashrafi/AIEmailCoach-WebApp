@@ -2577,3 +2577,43 @@ Discovered two critical security bugs:
 - ✅ Cache isolated per user with user ID in query keys
 - ✅ Automatic token injection in all API calls
 
+
+---
+
+## Commit 53 - Portfolio Enhancement: Demo Credentials Display
+
+<!-- Dec 15, 2025 -->
+
+git commit -m "feat[frontend]: add demo credentials card to login page"
+
+```
+feat[frontend]: add demo credentials card to login page
+
+Added prominent demo credentials display to make the portfolio project
+more accessible to users, who do not want to register an account.
+
+Frontend Changes:
+- Convert login page to responsive grid layout (2-column on desktop, stacked on mobile)
+- Add demo credentials card with styled credential boxes
+- Maintain centered appearance with max-w-5xl container
+- Add registration link to demo card
+
+Documentation Changes:
+- Add "Try the Live Demo" section to README with credentials
+- Include live demo URL (Vercel deployment)
+- Add portfolio context explaining project scope
+- Clarify demo account benefits (no OAuth setup required)
+
+Benefits:
+- Instant access for portfolio reviewers
+- Professional presentation for hiring managers
+- Reduced friction for testing the application
+- Clear value proposition in README
+
+Files: app/auth/login/page.tsx, README.md
+```
+
+### What I Built
+
+Enhanced the login page and README to make this portfolio project immediately accessible to potential employers and technical reviewers without requiring OAuth setup or Microsoft account addition. Now users can try the demo and AI features without providing any credentials. Now viewers can test the AI classification, draft generation, and streaming features in under 30 seconds instead of spending 10+ minutes configuring Azure OAuth.
+

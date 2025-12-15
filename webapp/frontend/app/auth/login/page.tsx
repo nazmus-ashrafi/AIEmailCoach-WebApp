@@ -43,67 +43,104 @@ function LoginPageContent() {
 
     return (
         <div className="min-h-screen bg-black flex items-center justify-center p-6">
-            <Card className="w-full max-w-md bg-stone-900 border-stone-800">
-                <CardHeader>
-                    <CardTitle className="text-2xl font-bold text-white text-center">
-                        Login to AI Email Coach
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        {error && (
-                            <div className="bg-red-900/20 border border-red-800 text-red-400 px-4 py-3 rounded">
-                                {error}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl w-full">
+                {/* Login Card */}
+                <Card className="w-full bg-stone-900 border-stone-800">
+                    <CardHeader>
+                        <CardTitle className="text-2xl font-bold text-white text-center">
+                            Login to AI Email Coach
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            {error && (
+                                <div className="bg-red-900/20 border border-red-800 text-red-400 px-4 py-3 rounded">
+                                    {error}
+                                </div>
+                            )}
+
+                            <div>
+                                <label htmlFor="email" className="block text-sm font-medium text-stone-300 mb-2">
+                                    Email
+                                </label>
+                                <input
+                                    id="email"
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                    className="w-full px-4 py-2 bg-stone-800 border border-stone-700 rounded text-white focus:outline-none focus:ring-2 focus:ring-stone-600"
+                                    placeholder="you@example.com"
+                                />
                             </div>
-                        )}
 
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-stone-300 mb-2">
-                                Email
-                            </label>
-                            <input
-                                id="email"
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                                className="w-full px-4 py-2 bg-stone-800 border border-stone-700 rounded text-white focus:outline-none focus:ring-2 focus:ring-stone-600"
-                                placeholder="you@example.com"
-                            />
-                        </div>
+                            <div>
+                                <label htmlFor="password" className="block text-sm font-medium text-stone-300 mb-2">
+                                    Password
+                                </label>
+                                <input
+                                    id="password"
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    className="w-full px-4 py-2 bg-stone-800 border border-stone-700 rounded text-white focus:outline-none focus:ring-2 focus:ring-stone-600"
+                                    placeholder="••••••••"
+                                />
+                            </div>
 
-                        <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-stone-300 mb-2">
-                                Password
-                            </label>
-                            <input
-                                id="password"
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                className="w-full px-4 py-2 bg-stone-800 border border-stone-700 rounded text-white focus:outline-none focus:ring-2 focus:ring-stone-600"
-                                placeholder="••••••••"
-                            />
-                        </div>
+                            <Button
+                                type="submit"
+                                disabled={isLoading}
+                                className="w-full bg-stone-700 hover:bg-stone-600 text-white py-2 rounded font-medium transition-colors"
+                            >
+                                {isLoading ? 'Logging in...' : 'Login'}
+                            </Button>
 
-                        <Button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full bg-stone-700 hover:bg-stone-600 text-white py-2 rounded font-medium transition-colors"
-                        >
-                            {isLoading ? 'Logging in...' : 'Login'}
-                        </Button>
+                            <div className="text-center text-sm text-stone-400">
+                                Don't have an account?{' '}
+                                <Link href="/auth/register" className="text-stone-300 hover:text-white underline">
+                                    Register here
+                                </Link>
+                            </div>
+                        </form>
+                    </CardContent>
+                </Card>
 
-                        <div className="text-center text-sm text-stone-400">
-                            Don't have an account?{' '}
-                            <Link href="/auth/register" className="text-stone-300 hover:text-white underline">
+                {/* Demo Credentials Card */}
+                <Card className="w-full bg-stone-900 border-stone-800 flex flex-col justify-center">
+                    <CardHeader>
+                        <CardTitle className="text-xl font-bold text-white text-center">
+                            Try the Demo
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <p className="text-stone-300 text-center text-sm">
+                            Please try out the app using these demo credentials or <Link href="/auth/register" className="text-stone-300 hover:text-white underline">
                                 Register here
                             </Link>
+                        </p>
+
+                        <div className="bg-stone-800 border border-stone-700 rounded p-4 space-y-3">
+                            <div>
+                                <div className="text-xs font-medium text-stone-400 mb-1">Email</div>
+                                <div className="text-white font-mono text-sm bg-stone-900 px-3 py-2 rounded border border-stone-700">
+                                    nazmus.as@gmail.com
+                                </div>
+                            </div>
+
+                            <div>
+                                <div className="text-xs font-medium text-stone-400 mb-1">Password</div>
+                                <div className="text-white font-mono text-sm bg-stone-900 px-3 py-2 rounded border border-stone-700">
+                                    nazmus123
+                                </div>
+                            </div>
                         </div>
-                    </form>
-                </CardContent>
-            </Card>
+
+
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 }

@@ -12,6 +12,19 @@
 
 AI Email Coach is a full-stack web application that revolutionizes email management by leveraging AI to automatically triage incoming emails and generate intelligent draft responses. Built with modern technologies and best practices, it provides a seamless experience for managing multiple email accounts with real-time AI assistance.
 
+This project showcases professional-grade software engineering practices including feature-based architecture, comprehensive security implementation, real-time streaming, and modern state management patterns. It was developed as a portfolio piece to demonstrate full-stack development capabilities with cutting-edge AI integration.
+
+### 🎯 Try the Live Demo
+
+Live demo is available at [AI Email Coach](https://ai-email-coach-web-app.vercel.app/auth/login)
+
+Experience the application firsthand using these demo credentials or sign up for an account using your email:
+
+- **Email**: `nazmus.as@gmail.com`
+- **Password**: `nazmus123`
+
+The demo account includes pre-synced emails and classifications to showcase the AI capabilities without requiring you own email setup.
+
 ### Key Highlights
 
 - **🤖 AI-Powered Classification**: Automatically categorizes emails into `ignore`, `notify`, or `respond` with detailed reasoning
