@@ -97,6 +97,15 @@ function LoginPageContent() {
                                 {isLoading ? 'Logging in...' : 'Login'}
                             </Button>
 
+                            {isLoading && (
+                                <div className="bg-blue-900/20 border border-blue-800 text-blue-300 px-4 py-3 rounded text-sm">
+                                    <p className="font-medium mb-1">⏱️ First login may take 30-60 seconds</p>
+                                    <p className="text-xs text-blue-400">
+                                        The backend is hosted on a free Render instance and may need to wake up from sleep mode. Thank you for your patience!
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="text-center text-sm text-stone-400">
                                 Don't have an account?{' '}
                                 <Link href="/auth/register" className="text-stone-300 hover:text-white underline">
