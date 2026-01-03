@@ -38,7 +38,10 @@ function EmailsPageContent() {
       {/* Navigation Bar */}
       <nav className="bg-stone-900 border-b border-stone-800 px-6 py-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white">ProfEmail</h1>
+          <a href="/" className="flex items-center gap-2 text-2xl font-bold text-white">
+            <img src="/logo.png" alt="ProfEmail Logo" className="w-8 h-8" />
+            ProfEmail
+          </a>
           <UserMenu />
         </div>
       </nav>

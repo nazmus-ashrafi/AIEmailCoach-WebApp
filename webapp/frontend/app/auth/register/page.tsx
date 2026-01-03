@@ -4,7 +4,7 @@
  * Registration Page
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/auth/auth-context';
@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 
 export default function RegisterPage() {
     const router = useRouter();
-    const { register } = useAuth();
+    const { register, isLoading: authLoading, isAuthenticated } = useAuth();
 
     const [formData, setFormData] = useState({
         email: '',
@@ -24,6 +24,40 @@ export default function RegisterPage() {
     });
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (!authLoading && isAuthenticated) {
+            router.push('/accounts');
+        }
+    }, [authLoading, isAuthenticated, router]);
+
+    // Show loading state while auth context initializes
+    if (authLoading) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-64 h-1.5 bg-stone-800 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-gradient-to-r from-stone-600 via-stone-400 to-stone-600 rounded-full animate-loading-bar"
+                            style={{ width: '40%' }}
+                        />
+                    </div>
+                    <div className="text-stone-500 text-sm">Loading...</div>
+                </div>
+                <style jsx>{`
+                    @keyframes loading-bar {
+                        0% { transform: translateX(-100%); }
+                        50% { transform: translateX(150%); }
+                        100% { transform: translateX(-100%); }
+                    }
+                    .animate-loading-bar {
+                        animation: loading-bar 1.5s ease-in-out infinite;
+                    }
+                `}</style>
+            </div>
+        );
+    }
 
     // Updates state on every keystroke
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

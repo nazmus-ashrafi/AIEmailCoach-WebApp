@@ -3,57 +3,21 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/components/auth/auth-context';
-import { useRouter } from 'next/navigation';
 
 export default function LandingPage() {
-  const { isAuthenticated, isLoading } = useAuth();
-  const router = useRouter();
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     setIsVisible(true);
   }, []);
 
-  // Redirect authenticated users to accounts
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.push('/accounts');
-    }
-  }, [isAuthenticated, isLoading, router]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-64 h-1.5 bg-stone-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-stone-600 via-stone-400 to-stone-600 rounded-full"
-              style={{
-                width: '40%',
-                animation: 'loading-bar 1.5s ease-in-out infinite',
-              }}
-            />
-          </div>
-          <div className="text-stone-500 text-sm">Loading...</div>
-        </div>
-        <style jsx>{`
-          @keyframes loading-bar {
-            0% { transform: translateX(-100%); }
-            50% { transform: translateX(150%); }
-            100% { transform: translateX(-100%); }
-          }
-        `}</style>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-black">
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md border-b border-stone-800">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="text-2xl font-bold text-white">
+          <Link href="/" className="flex items-center gap-2 text-2xl font-bold text-white">
+            <img src="/logo.png" alt="ProfEmail Logo" className="w-8 h-8" />
             ProfEmail
           </Link>
           <div className="flex items-center gap-4">
@@ -115,114 +79,79 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-6 bg-gradient-to-b from-black to-stone-950">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold text-white text-center mb-4">
+      <section className="py-24 px-6 bg-gradient-to-b from-black to-stone-950">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-4xl md:text-5xl font-bold text-white text-center mb-4">
             Powerful Features
           </h2>
-          <p className="text-stone-400 text-center mb-16 max-w-2xl mx-auto">
+          <p className="text-stone-400 text-center mb-20 max-w-2xl mx-auto text-lg">
             Everything you need to manage your inbox efficiently with AI assistance
           </p>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {/* Feature 1 */}
-            <div className="group p-8 bg-stone-900/50 rounded-2xl border border-stone-800 hover:border-stone-600 transition-all hover:-translate-y-1">
-              <div className="w-14 h-14 bg-gradient-to-br from-green-500/20 to-green-600/10 rounded-xl flex items-center justify-center mb-6">
-                <span className="text-3xl">📧</span>
+          <div className="space-y-24">
+            {/* Feature 1 - Multi-Account Support - Image Left, Text Right */}
+            <div className="grid md:grid-cols-5 gap-12 items-center">
+              <div className="md:col-span-3">
+                <img
+                  src="/connect.png"
+                  alt="Multi-Account Support"
+                  className="w-full rounded-2xl shadow-2xl"
+                />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-3">
-                Smart Classification
-              </h3>
-              <p className="text-stone-400">
-                Automatically categorize emails as <span className="text-green-400">Respond</span>, <span className="text-amber-400">Notify</span>, or <span className="text-red-400">Ignore</span> based on content and context.
-              </p>
-            </div>
-
-            {/* Feature 2 */}
-            <div className="group p-8 bg-stone-900/50 rounded-2xl border border-stone-800 hover:border-stone-600 transition-all hover:-translate-y-1">
-              <div className="w-14 h-14 bg-gradient-to-br from-blue-500/20 to-blue-600/10 rounded-xl flex items-center justify-center mb-6">
-                <span className="text-3xl">✍️</span>
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-3">
-                AI Draft Generation
-              </h3>
-              <p className="text-stone-400">
-                Get professional response drafts generated in real-time with streaming support. Edit and send in seconds.
-              </p>
-            </div>
-
-            {/* Feature 3 */}
-            <div className="group p-8 bg-stone-900/50 rounded-2xl border border-stone-800 hover:border-stone-600 transition-all hover:-translate-y-1">
-              <div className="w-14 h-14 bg-gradient-to-br from-purple-500/20 to-purple-600/10 rounded-xl flex items-center justify-center mb-6">
-                <span className="text-3xl">🔗</span>
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-3">
-                Multi-Account Support
-              </h3>
-              <p className="text-stone-400">
-                Connect and manage multiple Outlook accounts from one unified dashboard.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section className="py-20 px-6">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold text-white text-center mb-4">
-            How It Works
-          </h2>
-          <p className="text-stone-400 text-center mb-16 max-w-2xl mx-auto">
-            Get started in three simple steps
-          </p>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {/* Step 1 */}
-            <div className="text-center">
-              <div className="w-16 h-16 bg-stone-800 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold text-stone-300 border border-stone-700">
-                1
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-3">
-                Connect Your Email
-              </h3>
-              <p className="text-stone-400">
-                Securely link your Outlook account with OAuth authentication.
-              </p>
-              <div className="mt-6 bg-stone-900 rounded-xl border border-stone-800 p-2">
-                <img src="/connect.png" alt="Connect Email" className="w-full rounded-lg" />
+              <div className="space-y-6 md:col-span-2">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/10 rounded-xl flex items-center justify-center">
+                  <span className="text-4xl">👥</span>
+                </div>
+                <h3 className="text-3xl font-bold text-white">
+                  Multi-Account Support
+                </h3>
+                <p className="text-stone-400 text-lg leading-relaxed">
+                  Connect and manage multiple Outlook accounts from one unified dashboard. Seamlessly switch between personal and work inboxes without logging in and out.
+                </p>
               </div>
             </div>
 
-            {/* Step 2 */}
-            <div className="text-center">
-              <div className="w-16 h-16 bg-stone-800 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold text-stone-300 border border-stone-700">
-                2
+            {/* Feature 2 - Smart Classification - Image Right, Text Left */}
+            <div className="grid md:grid-cols-5 gap-12 items-center">
+              <div className="space-y-6 md:order-1 md:col-span-2">
+                <div className="w-16 h-16 bg-gradient-to-br from-green-500/20 to-green-600/10 rounded-xl flex items-center justify-center">
+                  <span className="text-4xl">📧</span>
+                </div>
+                <h3 className="text-3xl font-bold text-white">
+                  Smart Classification
+                </h3>
+                <p className="text-stone-400 text-lg leading-relaxed">
+                  Our AI automatically analyzes incoming emails and categorizes them as <span className="text-green-400 font-medium">Respond</span>, <span className="text-amber-400 font-medium">Notify</span>, or <span className="text-red-400 font-medium">Ignore</span> based on content, sender, and context. Never miss an important email again.
+                </p>
               </div>
-              <h3 className="text-xl font-semibold text-white mb-3">
-                AI Analyzes Emails
-              </h3>
-              <p className="text-stone-400">
-                Our AI reads and classifies your emails, identifying which need your attention.
-              </p>
-              <div className="mt-6 bg-stone-900 rounded-xl border border-stone-800 p-2">
-                <img src="/analyse.png" alt="AI Analysis" className="w-full rounded-lg" />
+              <div className="md:order-2 md:col-span-3">
+                <img
+                  src="/analyse.png"
+                  alt="Smart Classification"
+                  className="w-full rounded-2xl shadow-2xl"
+                />
               </div>
             </div>
 
-            {/* Step 3 */}
-            <div className="text-center">
-              <div className="w-16 h-16 bg-stone-800 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold text-stone-300 border border-stone-700">
-                3
+            {/* Feature 3 - AI Draft Generation - Image Left, Text Right */}
+            <div className="grid md:grid-cols-5 gap-12 items-center">
+              <div className="md:col-span-3">
+                <img
+                  src="/draft.png"
+                  alt="AI Draft Generation"
+                  className="w-full rounded-2xl shadow-2xl"
+                />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-3">
-                Get Smart Drafts
-              </h3>
-              <p className="text-stone-400">
-                Receive AI-generated response drafts that you can edit and send instantly.
-              </p>
-              <div className="mt-6 bg-stone-900 rounded-xl border border-stone-800 p-2">
-                <img src="/draft.png" alt="AI Draft" className="w-full rounded-lg" />
+              <div className="space-y-6 md:col-span-2">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500/20 to-blue-600/10 rounded-xl flex items-center justify-center">
+                  <span className="text-4xl">✍️</span>
+                </div>
+                <h3 className="text-3xl font-bold text-white">
+                  AI Draft Generation
+                </h3>
+                <p className="text-stone-400 text-lg leading-relaxed">
+                  Get professional response drafts generated in real-time with streaming support. Watch as the AI crafts your reply word by word. Edit, refine, and send in seconds—not minutes.
+                </p>
               </div>
             </div>
           </div>
@@ -273,8 +202,14 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="py-8 px-6 border-t border-stone-800">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="ProfEmail Logo" className="w-6 h-6" />
+            <p className="text-stone-500 text-sm">
+              © 2026 ProfEmail. AI-powered email coaching.
+            </p>
+          </div>
           <p className="text-stone-500 text-sm">
-            © 2026 ProfEmail. AI-powered email coaching.
+            Built by <span className="font-bold italic text-sky-400">nazmus</span> and 🤖 with 💦 and 🥲
           </p>
           <div className="flex gap-6">
             <Link href="/auth/login" className="text-stone-500 hover:text-stone-300 text-sm transition-colors">
